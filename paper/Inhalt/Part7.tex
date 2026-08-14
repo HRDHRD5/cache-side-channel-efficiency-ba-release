@@ -1,0 +1,86 @@
+
+\subsection{Ergebnisse}
+Diese Arbeit betrachtet \acp{CbCC} in dem Kontext von
+\acp{TEA} losgelöst von den tatsächlichen Angriffen.
+Dadurch wird allgemeiner das Problem der Laufzeit der
+Übertragung von Daten während der Transient Execution
+analysiert.
+
+Es wird das erste Mal die praktische Umsetzung
+der bitweisen Encodierung, im Kontext von \acp{TEA},
+demonstriert und mit der Array-Index-Encodierung verglichen.
+Dabei zeigt sich, dass die bitweise Encodierung, bezüglich
+der Anzahl der encodierten Bits, begrenzt ist.
+Die Array-Index-Encodierung weist dagegen ein exponentiell
+steigendes Laufzeitverhalten bei steigender Bitanzahl auf.
+Aus diesem Grund wird der Durchsatz abhängig von der Bitanzahl
+und verschiedenen messbaren Parametern modelliert und eine
+Funktion für die Berechnung der optimalen Encodierung
+hergeleitet.
+
+Des Weiteren wird die obere Grenze
+$\frac{1}{T_P+T_R}$ für den Durchsatz von \acp{CbCC} im Kontext
+von Transient Execution ermittelt. Die ermittelte
+Durchsatzfunktion $D(n_a)$ kann zudem auch als obere Grenze für
+den Durchsatz eines \ac{CbCC} interpretiert werden, insofern für
+$T_R$ die geringere Laufzeit zwischen einer gecachten und einer
+nicht gecachten Adresse verwendet wird.
+Zuletzt wird an einem bereits bekannten \ac{POC} verdeutlicht, wie
+stark ein praktischer \ac{TEA} durch die Optimierung des
+verwendeten \ac{CbCC} und damit das ausgehende Risiko verändert
+werden kann.
+
+Auch wenn Gadgets behoben und Mitigationen gegen
+\acp{TEA} in Mikrocode entwickelt werden, bleibt bei
+bestehender Hardware das zugrunde liegende Problem der
+Schwachstellen bestehen (\cite[3,10]{hertogh_rain_nodate}).
+Neue \acp{CPU} verwenden außerdem weiter spekulative
+Ausführung, um die Performance weiter zu steigern. Dabei
+handelt es sich nicht nur um Branch-Prediction, sondern auch
+um neue Predictoren (\cite[5]{kim_slap_2025}). Diese neuen
+Performanceverbesserungen bieten auch neue Angriffsflächen
+für \acp{TEA}. Diese Art von Angriffen wird also in Zukunft
+bestehen bleiben und kann präventiv nur begrenzt werden.
+Aus diesem Grund ist besonders für Endgeräte die Laufzeit
+eines möglichen Angriffs relevant. Die hergeleitete Funktion
+für den Durchsatz $D(n_a)$ ermöglicht die Einschätzung
+der Laufzeit dieser Angriffe unabhängig von der ausgenutzten
+Schwachstelle.
+
+\subsection{Ausblick}
+Die theoretische Betrachtung des Durchsatzes beachtet nicht
+die Fehlerrate des \ac{CbCC}. Besonders in Bezug auf die
+beiden Encodierungen müsste für einen realistischen Angriff
+und dessen Limits auch die Korrektheit der übertragenen Daten
+und damit auch Fehlerkorrekturverfahren in Betracht gezogen
+werden. Wie die Sektion \ref{paragraph:error-probability} zeigt,
+verhält sich die Fehlerwahrscheinlichkeit der beiden Encodierungen
+aufgrund der gegebenen Eigenschaften sehr unterschiedlich.
+Dies erschwert die Betrachtung der Fehlerwahrscheinlichkeiten
+für die verallgemeinerte Encodierung deutlich.
+
+Eine weitere offene Frage ist, wie Cache-Zustände optimal während
+der Transient Execution geändert werden können. Bekannt ist
+beispielsweise nicht, ob andere Instruktionen, wie
+\verb|clflush|, in demselben transient Fenster häufiger
+ausgeführt werden könnten als die \verb|prefetch0|-Instruktion.
+Des Weiteren könnte die Anzahl der Instruktionen für das
+Encodieren optimiert werden, um möglichst viele Zustände zu
+ändern.
+
+Die aktuelle Berechnung für den Durchsatz $D(n_a)$ kann
+vermutlich durch das Hinzufügen weiterer Parameter
+präzisiert werden. Dafür könnte beispielsweise ein Parameter
+für die Zeit zwischen zwei Übertragungen hinzugefügt oder
+die unterschiedliche Laufzeit zwischen einer gecachten
+und einer nicht gecachten Adresse beachtet werden. Dadurch
+könnte der maximale Durchsatz weiter eingegrenzt werden.
+Letztendlich sollten mathematische Modelle empirisch
+verifiziert werden, wofür die Bearbeitungszeit für diese
+Arbeit nicht ausgereicht hat. An einem entsprechenden
+Programm zur Ermittlung der nötigen Parameter und zum Messen
+des Durchsatzes für gegebene $n_b$ und $n_a$ habe ich bereits
+zum Zeitpunkt der Abgabe dieser Arbeit gearbeitet. Die
+Entwicklung des Programms setze ich fort, mit dem Ziel,
+empirische Werte des Durchsatzes mit der theoretischen Grenze
+sowie der Durchsatzfunktion zu vergleichen.

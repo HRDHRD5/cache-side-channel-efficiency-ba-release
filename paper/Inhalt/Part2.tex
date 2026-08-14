@@ -1,0 +1,419 @@
+
+\subsection{\ac{CPU} und Speicher Architektur}
+Computerarchitekturen bestehen aus mehreren Ebenen zur
+Abstraktion der Hardware, von einzelnen Transistoren bis hin
+zu einem Betriebssystem und Benutzerprogrammen.
+Die Funktionsweise von \ac{CbCC} und
+Transient Execution befindet sich auf der Ebene der
+\ac{CPU}-Architektur, ihrer Mikroarchitektur sowie der
+darunter liegenden Hardware.
+Eine Architektur ist die strukturelle Sicht des Computers, die
+dem Softwareentwickler präsentiert wird.
+Anstatt diese Architektur direkt in Hardware zu bauen und
+Entwicklern zur Verfügung zu stellen, wird bei modernen
+Prozessoren eine zusätzliche Abstraktionsschicht in Form von
+Mikrocode eingefügt. Diese ermöglicht die Implementierung
+von Instruktionen in Software und damit auch das nachträgliche
+patchen von Bugs.
+(\cite[14,379]{sarangi_basic_2021})
+Dementsprechend sind für jede Schicht nur bedingt die Vorgänge
+der darunter liegenden Schicht sichtbar. Sowohl \ac{CbCC} als
+auch \acp{TEA}
+nutzen Vorgänge in ihnen nicht zugänglichen, unteren Schichten
+aus, um in der Regel Informationen aus anderen Software
+Bereichen zu lesen. Aufgrund der Hardwarenähe der Schichten,
+die ausgenutzt werden ist das Erkennen entsprechender
+Informationsflüsse sehr schwer.
+
+\subsubsection{Computer Instruktionen und Ressourcen}
+Eine grundsätzliche Rechnerarchitektur ist heute als die
+„Von-Neumann-Architektur“ bekannt. Die zentrale Komponente
+dieser Architektur ist die \ac{CPU}, welche für reine
+arithmetische Berechnungen (\ac{ALU}) und für die
+Programminterpretation zuständig ist
+(Control Unit). Des Weiteren enthält diese Architektur einem
+Speicher (engl. Memory) sowie Geräte für Eingabe und
+Ausgabe. Dieser Speicher wird auch Arbeitsspeicher
+beziehungsweise \ac{RAM} genannt.
+Bei modernen Computern ist der \ac{RAM}, aufgrund seiner Größe im
+Verhältnis zur Geschwindigkeit der Rechenoperationen
+vergleichsweise langsam.
+Aus diesem Grund verwendet die \ac{CPU} selbst interne Register mit
+einer Kopie der aktuell benötigten Werte aus dem \ac{RAM}.
+(\cite[35]{sarangi_basic_2021})
+
+Ein einzelner Computer kann mehrere Prozessoren besitzen, die
+Programme parallel ausführen können. Wenn sich mehrere
+Prozessoren auf demselben Chip befinden, werden diese Kerne
+genannt. Mittlerweile gehört der größte Teil der Computersysteme
+zu den Multicore-Systemen mit eigenen Speicherzugriffen.
+(\cite[569,578]{sarangi_basic_2021})
+
+Die unterste Softwareebene, die für den Entwickler bereitgestellt
+wird, ist die \ac{ISA} einer \ac{CPU}. Diese beschreibt ursprünglich
+die Befehle, die von der \ac{CPU} in Hardware ausgeführt werden
+können. Während arithmetische Operationen dieser Instruktionen
+direkt auf den Registern ausgeführt werden, wird die
+Speicherarchitektur auf primär die Instruktionen „load“ und
+„store“ abstrahiert. Zwar existieren weitere speicherrelevante
+Instruktionen, diese hängen jedoch von der jeweiligen \ac{ISA}
+und teilweise auch von der konkreten Hardwareimplementierung ab.
+Bei modernen Prozessoren ist die \ac{ISA} außerdem nicht direkt
+in der Hardware implementiert, sondern wird durch sogenannte
+\acp{mop} abstrahiert. Da diese für die vorliegende
+Arbeit nur von untergeordneter Bedeutung sind, werden sie in
+Anhang \ref{appendix:microinstructions} näher
+beschrieben. Entsprechend arbeitet die \ac{ISA} mit dem
+architektonischen, während die Mikroinstruktionen mit dem
+mikroarchitektonischen Zustand der \ac{CPU} arbeitet.
+(\cite[19, 373, 379]{sarangi_basic_2021})
+Auch wenn verschiedene \acp{ISA} existieren und die besprochenen
+Konzepte auf die meisten Implementierungen von \acp{CPU}
+zutreffen, wird in dieser Arbeit \textendash\space sofern nicht
+anders angegeben \textendash\space primär die x86-64 \ac{ISA}
+betrachtet. Im Folgenden ist außerdem mit Speicher stets der
+nicht persistente \ac{RAM} des Computers gemeint, der von den
+\ac{CPU} während der Ausführung verwendet wird.
+
+Da sich bei der Von-Neumann-Architektur Instruktionen und Daten
+im selben Speicher befinden, wird der Speicher überwiegend als
+ein großes Array mit aufsteigenden Adressen betrachtet.
+Adressiert wird dabei jeweils ein Byte. Eine Folge von Instruktionen,
+die von einem Computer ausgeführt werden soll,
+wird als Programm bezeichnet und befindet sich genauso wie die
+Daten im Speicher.
+Um ein Programm auszuführen, müssen die Instruktionen zunächst
+von der \ac{CPU} geladen (engl. fetch), anschließend von der Hardware
+interpretiert und schließlich ausgeführt werden.
+Die Adresse der aktuell
+auszuführenden Instruktion wird als Programmzähler
+(engl. \acf{PC}) bezeichnet.
+(\cite[74,188]{mandl_grundkurs_2020})
+
+\subsubsection{Speicher und Cache Architektur}
+Ein zentrales Problem moderner Computer ist die Abhängigkeit von
+Zugriffen auf den \ac{RAM}. Die Speichergröße der \ac{CPU}-internen
+Register ist begrenzt und reicht für komplexere Programmabläufe
+nicht aus.
+Deshalb befinden sich sowohl Programme als auch deren Werte
+im Speicher und müssen durch „load“ und „store“ Instruktionen mit
+den Registern synchronisiert werden. Dementsprechend besteht ein
+erheblicher Anteil jedes Programms aus Speicher Zugriffen.
+Allerdings ist die Menge an Speicher auf demselben Chip wie
+der \ac{CPU} aus Platzgründen deutlich begrenzt.
+
+Grundsätzlich lassen sich zwei für moderne Rechnersysteme
+relevante \ac{RAM}-Tech\-no\-lo\-gien unterscheiden: \ac{SRAM} und
+\ac{DRAM}.
+An sich ist \ac{SRAM} die deutlich überlegene Technologie mit
+signifikant geringeren Zugriffszeiten. Jedoch ist \ac{SRAM}
+besonders bei der Anordnung in größeren Mengen erheblich größer
+und teurer. Auch wenn die modernsten Server Prozessoren heute
+bis zu einem Gigabyte \ac{SRAM} (\cite{noauthor_server_nodate})
+auf dem Chip erreichen, ist dies besonders im Verhältnis zu der
+Anzahl der Kerne des Prozessors sehr gering.
+Der Speicher auf dem \ac{CPU}-Chip ist allerdings nur ein Cache,
+der einen Teil des gesamten Speichers des Computers hält und
+die Zugriffszeit für möglichst viele Zugriffe minimieren soll.
+Dieser Cache ist nötig, da seit dem Ende des 20. Jahrhunderts
+die Speicherzugriffszeit die Rechenzeit der \ac{CPU} deutlich
+übersteigt.
+(\cite[37,38]{handy_cache_1993}, \cite[13]{hat_what_2007})
+
+Der restliche Programmspeicher befindet sich außerhalb der \ac{CPU}
+und muss über einen Bus angesteuert werden. Während ein idealer
+Speicher eine Zugriffszeit von einem \ac{CPU}-Zyklus hätte und
+damit praktisch instantan wäre, ist die reale Zugriffszeit
+abhängig von der Speicherebene, die angefragt wird. Diese Zeit
+liegt in der Regel zwischen ein bis zwei und wenigen 100 Zyklen
+(\cite[723,724]{yarom_flushreload_2014}),
+je nachdem welche Speicher Schicht angefragt wird.
+(\cite[16]{hat_what_2007}, \cite[534]{sarangi_basic_2021})
+
+Da der Cache nur ein Abbild eines Teils des gesamten Speichers
+ist, muss
+dieser so implementiert werden, dass sich bei Bedarf beliebige
+Adressen in den Cache schreiben und von dort lesen lassen.
+Gleichzeitig muss ein effizienter Mechanismus implementiert
+werden, um auf physischer Ebene anhand der Speicheradresse den
+Wert der Adresse zu ermitteln. Ist eine Adresse bereits im Cache
+vorhanden und kann direkt zurückgegeben werden wird dies ein
+Cache „Hit“, andernfalls ein „Miss“ genannt
+(\cite[514]{sarangi_basic_2021}). Das Entfernen
+einer Adresse beziehungsweise eines Blocks wird „Eviction“
+beziehungsweise als Verb „evict“ genannt.
+
+Empirisch zeigt sich, dass dicht
+nebeneinander liegende Adressen häufig im Zusammenhang verwendet
+werden. Diese Beobachtung wird als räumliche Lokalität
+bezeichnet. Aus diesem Grund speichern Caches Daten nicht
+byteweise, sondern in Blöcken. Anstatt des
+Ladens einer einzelnen Adresse wird also ein fester
+Speicherbereich \textendash\space typischerweise mit einer Größe
+zwischen 32 und 128 Byte \textendash\space in
+den Cache geladen. Der Cache ermittelt anhand der zu ladenden
+Adresse den gesuchten Block und gibt den darin gesuchten
+Wert zurück. Um von der Speicheradresse auf den physischen Cache
+Eintrag schließen zu können, wird eine Mappingmethode verwendet
+(vgl. \ref{appendix:basic-cache-arch}).
+In der Praxis wird häufig ein \ac{SAC} verwendet. Dabei ist
+jede Speicheradresse einer begrenzten Menge von physischen
+Cache-Einträgen, einem sogenannten „Set“, zugeordnet. Die Anzahl
+an physischen Einträgen je Set wird häufig, wie beispielsweise
+in Anhang \ref{appendix:lscpu-cache}, als „Ways“ bezeichnet.
+Die Einträge eines Sets werden über eine Setadresse angesteuert,
+die von der physischen Adresse abgeleitet wird. Dies kann
+durch das Assoziieren eines Teils der Speicheradresse
+mit der Setadresse geschehen. Zum Beispiel könnten die
+ersten $N$ Bit einer Adresse die Setadresse darstellen. Dabei
+wird das Mapping meist so gewählt, dass Adressen, die sich im
+selben Set befinden, nicht direkt nebeneinander liegen. Denn
+Adressen im selben Set konkurrieren gewissermaßen um den Cache
+und nach dem Prinzip der räumlichen Lokalität werden Adressen,
+die dicht beieinander liegen, häufig zur gleichen Zeit genutzt.
+(\cite[515,516]{sarangi_basic_2021}, \cite[16]{handy_cache_1993})
+
+Eine Konsequenz aus dieser Architektur ist die
+Existenz von sogenannten Eviction-Sets. Ein Eviction-Set ist eine
+Menge an physischen Adressen, die alle dem gleichen Cache-Set
+zugeordnet sind. Da diese Adressen bewusst nicht nah beieinander
+gewählt werden, ist es zudem nicht unwahrscheinlich, dass
+verschiedene Programme virtuelle Adressen besitzen, deren
+physische Adressen demselben Eviction-Set angehören.
+(\cite[40,41]{vila_theory_2019})
+
+Aufgrund der Größe der \ac{SRAM} Zellen des Cache nimmt mit
+zunehmender Cache Größe auch die Zugriffszeit zu. Aus diesem
+Grund ist der Cache in Prozessoren in mehrere Ebenen
+mit unterschiedlichen Größen geteilt. Die meisten Prozessoren
+haben 3 verschiedene Cache „Layer“, die mit L1, L2, L3 bezeichnet
+werden. Der letzte Cache vor dem \ac{RAM} wird \ac{LLC} genannt.
+(\cite[388]{slomka_grundlagen_2023}, \cite[596]{sarangi_basic_2021})
+
+Um die logische Implementierung dieser Cache Layer zu
+vereinfachen, kann ein Cache „inclusive“ gegenüber einer höheren
+Schicht sein. Das heißt, dass alle Blöcke, die dieser Cache
+enthält, sich auch in dem darüberliegenden Cache befindet.
+Inclusive \ac{CPU}-Speichersysteme sind aufgrund der
+einfacheren Implementierung deutlich weiter verbreitet. Einige
+neuere Prozessoren nutzen mittlerweile allerdings non-inclusive
+Cache Layer (\cite[513]{sarangi_basic_2021},
+\cite[4]{rauscher_systematic_2025}).
+
+Darüber hinaus können Caches als „write-through“ oder
+„write-back“ Caches implementiert werden. Write-through
+beschreibt das Korrigieren eines geschriebenen Wertes im
+Speicher, sobald dieser im Cache geändert wird. Bei write-back
+dagegen, wird erst bei der Eviction des Blocks der Wert in
+den restlichen Speicherschichten neu gesetzt.
+(\cite[526,527]{sarangi_basic_2021})
+Bei mehreren Kernen kann ein Cache „private“, dass bedeutet
+nur für einen Teil der Kerne zugreifbar, oder „shared“, das heißt für
+alle Kerne zugreifbar, sein. Wenn ein Cache-Layer private ist,
+bedeutet das außerdem, dass für jeden Kern dieser Cache
+separat physisch implementiert ist.
+(\cite[593,594]{sarangi_basic_2021})
+Auch wenn die im folgenden
+betrachteten \acp{CPU} Instruktionen und Daten in demselben
+Speicher halten, ist es üblich, den L1 Cache in einen Cache für
+Instruktionen (L1i) und einen für Daten (L1d) zu teilen.
+(\cite[3]{schwarz_zombieload_2019}) Diese Unterteilung ist
+für \ac{CbCC} weniger relevant, weswegen im folgenden alle
+Caches so betrachtet werden, als würden sie sowohl Daten als
+auch Instruktionen speichern.
+Je nachdem, welche Architektur im Cache-Design eines Prozessors
+implementiert ist, sind verschiedene \acp{CbCC} nutzbar.
+(\cite[4,5]{rauscher_systematic_2025})
+Eine in der Vergangenheit häufige Cache-Architektur, beinhalteten
+zwei bis vier Layer mit ein bis drei private Layern und einem
+shared \ac{LLC}. In Abbildung \ref{figure:cache-architectures}
+sind die Cachearchitekturen der getesteten \acp{CPU} dargestellt;
+darunter befindet sich auch diese Architektur.
+Die verschiedenen Cache-Implementierungen sind in Anhang
+\ref{appendix:multilayer-cache} detaillierter erläutert.
+
+\begin{figure}
+    \centering
+    \tikzset{shape cache/.style = {
+        shape=rectangle, color=black, draw,
+        outer xsep=0.1cm, outer ysep=0.1cm,
+    }}
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \begin{tikzpicture}
+            \begin{scope}[on background layer={color=orange!30}, outer sep=-0.1cm]
+                \fill (-1,-1) rectangle (1,1);
+                \node[] (ccenter) [centered=of bg.center] {};
+                \node[] (topcenter) [above=0.6cm of ccenter.north] {};
+                \node[] (botcenter) [below=0.2cm of ccenter.south] {};
+                \node[shape cache, fill=green!40] (l11) [left=0cm of topcenter.center] {L1};
+                \node[shape cache, fill=green!40] (l12) [right=0cm of topcenter.center] {L1};
+                \node[shape cache, fill=blue!40] (l21) [left=0cm of ccenter.center] {L2};
+                \node[shape cache, fill=blue!40] (l22) [right=0cm of ccenter.center] {L2};
+                \node[shape cache, fill=red!40] (l31) [below=0cm of botcenter.center] {LLC};
+            \end{scope}
+        \end{tikzpicture}
+        \subcaption{Intel\textregistered\space Core\texttrademark\space i7-6700K}
+    \end{subfigure}
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \begin{tikzpicture}
+            \begin{scope}[on background layer={color=orange!30}, outer sep=-0.1cm]
+                \fill (-1,-1) rectangle (1,1);
+                \node[] (ccenter) [centered=of bg.center] {};
+                \node[] (topcenter) [above=0.6cm of ccenter.north] {};
+                \node[] (botcenter) [below=0.2cm of ccenter.south] {};
+                \node[shape cache, fill=green!40] (l11) [left=0cm of topcenter.center] {L1};
+                \node[shape cache, fill=green!40] (l12) [right=0cm of topcenter.center] {L1};
+                \node[shape cache, fill=blue!40] (l21) [left=0cm of ccenter.center] {L2};
+                \node[shape cache, fill=blue!40] (l22) [right=0cm of ccenter.center] {L2};
+                \node[shape cache, fill=red!40] (l31) [below=0cm of botcenter.center] {LLC};
+            \end{scope}
+        \end{tikzpicture}
+        \subcaption{Intel\textregistered\space Core\texttrademark\space i7-7700HQ}
+    \end{subfigure}
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \begin{tikzpicture}
+            \begin{scope}[on background layer={color=orange!30}, outer sep=-0.1cm]
+                \fill (-1,-1) rectangle (1,1);
+                \node[] (ccenter) [centered=of bg.center] {};
+                \node[] (topcenter) [above=0.3cm of ccenter.north] {};
+                \node[] (botcenter) [below=0.25cm of ccenter.south] {};
+                \node[shape cache, fill=green!40] (l11) [left=0cm of topcenter.center] {L1};
+                \node[shape cache, fill=green!40] (l12) [right=0cm of topcenter.center] {L1};
+                \node[shape cache, fill=blue!40] (l21) [left=0cm of botcenter.center] {L2};
+                \node[shape cache, fill=blue!40] (l22) [right=0cm of botcenter.center] {L2};
+            \end{scope}
+        \end{tikzpicture}
+        \subcaption{AMD A10-7850K APU\label{figure:cache-architecure-amd-a10}}
+    \end{subfigure}
+    \caption{Cache-Architekturen der getesteten \acp{CPU} (nach Anhang
+    \ref{appendix:lscpu-cache})\label{figure:cache-architectures}.
+    Die Caches sind jeweils nur für zwei Kerne dargestellt, um das
+    Konzept der Architektur zu veranschaulichen.}
+\end{figure}
+
+\subsubsection{Pipelined Prozessoren}
+Um Instruktionen auszuführen werden diese in \acp{mop}
+übersetzt, die sequentiell ausgeführt werden müssten.
+Alle \ac{mop} durchlaufen dabei verschiedene
+Phasen. Beispielsweise müssen die \acp{mop} und ihre Operanden aus
+dem Speicher in die Register geladen, in der ALU
+ausgeführt und das Ergebnis anschließend in ein Zielregister geschrieben
+werden. Das Ergebnis dieser Architektur
+sind einzelne Einheiten, die miteinander Verbunden sind und in
+einer festen Reihenfolge arbeiten. In jedem Taktzyklus
+der \ac{CPU} wird eine Phase einer \ac{mop}
+abgearbeitet. Da die \acp{mop} allerdings sequenziell die
+Phasen durchlaufen bleibt eine Menge Zeit in einzelnen
+Einheiten ungenutzt. Aus diesem Grund werden Prozessoren als
+Pipeline gebaut, in der mehrere, aufeinanderfolgende \acp{mop},
+parallel in verschiedenen Phasen ausgeführt werden.
+(\cite[361,362]{sarangi_basic_2021})
+
+Die Idee des Pipelining besteht darin, die Einheiten der
+\ac{CPU} in sequenzieller Form anzuordnen, sodass in jedem
+Zyklus jede Phase eine \ac{mop} verarbeitet. Jeder Übergang
+zwischen zwei Einheiten wird dabei durch Register realisiert,
+die die maximal nötigen Daten für die folgenden Phasen
+zwischenspeichern. Die Phasen werden bei modernen \acp{CPU} immer
+granularer unterteilt, um mehr \acp{mop} gleichzeitig in kürzer
+werdenden Zyklen verarbeiten zu können.
+(\cite[414-416]{sarangi_basic_2021})
+
+Ein Problem dieser Struktur besteht darin, dass \acp{mop}
+Abhängigkeiten zu früheren \acp{mop} haben können und die
+Verarbeitung der vorherigen \ac{mop} zumindest teilweise
+abgeschlossen sein muss. Ein typisches Beispiel dafür
+sind Branch-Instruktionen. Diese haben die Aufgabe den Control
+Flow, also welche Programmteile ausgeführt werden, dynamisch zu
+ändern. Dies geschieht, indem der \ac{PC} auf eine neue
+Zieladresse gesetzt wird. Der neue Wert des \ac{PC} verweist entweder
+auf einen anderen Programmteil als den aktuell ausgeführten, dann
+wird der Branch „genommen“, oder der Programmablauf wird nicht geändert
+und der \ac{PC} wird auf die nächste Instruktion gesetzt, in diesem
+Fall wird der Branch nicht „genommen“.
+(\cite[31,34]{kaeli_speculative_2005})
+
+Die Veränderung des \ac{PC} erfolgt an
+einem Punkt in der Pipeline, wo die nächsten \acp{mop}
+bereits in die Pipeline geladen und verarbeiteten werden sollten.
+Hinzu kommt, dass ein Prefetching-Mechanismus Instruktionen aus
+dem Speicher lädt, bevor diese ausgeführt werden.
+Dies ist notwendig, da das Laden der Instruktionen zum Zeitpunkt
+ihrer Ausführung von der Speicherlatenz abhängen würde und
+die Pipeline erhebliche Leerlaufzeiten hätte.
+(\cite[9-11]{kaeli_speculative_2005})
+Diese Abhängigkeit wird als Control-Hazard bezeichnet und muss
+in dem Aufbau der \ac{CPU} berücksichtigt werden.
+
+Ein sogenanntes Data-Hazard kann dagegen auftreten, wenn eine
+spätere Instruktion Daten einer früheren Instruktion verwendet,
+obwohl diese frühere Instruktion den Schritt des Schreibens der
+Daten in ein Register noch nicht erreicht hat. Diese Art von
+Abhängigkeit wird auch als \ac{RAW}-Abhängigkeit bezeichnet.
+(\cite[423-427]{sarangi_basic_2021})
+
+Bei einer Branch Instruktion müsste also der
+Prefetching-Mechanismus und die gesamte Pipeline warten, bis die
+Branch-Entscheidung getroffen und der \ac{PC} angepasst wurde.
+Je länger die Pipeline ist und je später die
+Branch-Entscheidung erfolgt, desto länger ist diese Wartezeit.
+(\cite[29-36]{kaeli_speculative_2005})
+
+\subsubsection{Transient Execution}
+Die Pipeline-Struktur führt zum Ausführen
+von \acp{mop}, ohne dass vorherige \acp{mop} beendet oder
+alle Abhängigkeiten aufgelöst sind. Die \ac{CPU} speichert die
+Zustände der einzelnen \acp{mop} und übernimmt (engl. committed)
+die architektonischen Änderungen in der korrekten Reihenfolge,
+sobald alle Abhängigkeiten aufgelöst wurden. Führt eine
+Abhängigkeit zu einem Fehler, werden die Änderungen verworfen
+(engl. squashed) und die \acp{mop} wurden nur „flüchtig“,
+also transient, ausgeführt. Änderungen in dem Bereich der
+Mikroarchitektur bleiben allerdings teilweise erhalten.
+(\cite[251]{canella_systematic_2019})
+Für das Speichern des Zustands der \acp{mop} und das Committen
+nach dem Auflösen der Abhängigkeiten ist der sogenannte \ac{ROB}
+zuständig. (\cite[493,494]{sarangi_basic_2021})
+Da dieser Speicher begrenzt ist kann nur eine gewisse
+Menge an \acp{mop} transient ausgeführt werden
+(\cite[6]{mosier_analyzing_2025}).
+
+Ein weiterer Optimierungsmechanismus, der eng mit Pipelining
+zusammenhängt, ist \ac{OoO}-Execution. Ziel ist es,
+Instruktionen ohne Data Hazards effizienter auszuführen.
+Dazu werden voneinander unabhängige Instruktionen in
+veränderter Reihenfolge ausgeführt, um die Auslastung der
+\ac{CPU} Einheiten zu maximieren. Durch das Ausführen späterer
+Instruktionen vor den zuvor kommenden Instruktionen führt
+allerdings auch dieses Konzept zu Transient Execution.
+Wenn beispielsweise eine im Programm frühere Instruktion
+zeitlich nach folgenden Instruktionen ausgeführt wird und einen
+Fehler auslöst, können diese späteren Instruktionen bereits
+ausgeführt worden sein, obwohl sie im eigentlichen
+Programmablauf erst nach dem Fehler folgen würden.
+Die im Programm nachfolgenden Instruktionen wurden zum Zeitpunkt
+des Fehlers bereits ausgeführt und trotz des zurücksetzen des
+Zustands können Informationen durch Covert- beziehungsweise
+Side-Channel übertragen werden.
+(\cite[5]{lipp_meltdown_2020}, \cite[633]{cheng_speclfb_2024})
+
+Spekulative Ausführung ist eine spezielle Form der transient
+Execution, bei der die \ac{CPU} Control- oder Data-Hazards durch das
+Vorhersagen von Abhängigkeiten auflöst.
+Die Anzahl der Instruktionen beziehungsweise die Zeitspanne, über
+die die \ac{CPU} Instruktionen ausführt, die später verworfen
+werden, wird als die Größe oder Tiefe des spekulativen
+beziehungsweise transient Fensters bezeichnet. Diese Zeit hängt
+von der Größe des \ac{ROB} sowie der Dauer ab, bis die zugrunde
+liegenden Abhängigkeiten aufgelöst werden können. Die Größe
+dieses Fensters ist beispielsweise besonders groß, wenn eine
+benötigte Adresse nicht im Cache vorhanden ist und aus dem \ac{RAM}
+geladen werden muss. In diesem Falle ist das Fenster nur durch
+die Größe des \ac{ROB} begrenzt. (\cite[6]{mosier_analyzing_2025})
+Transient Execution wird am Beispiel von spekulativer
+Branch-Ausführung in Anhang
+\ref{appendix:speculative-branches} näher erläutert.
+(\cite[136]{kaeli_speculative_2005})

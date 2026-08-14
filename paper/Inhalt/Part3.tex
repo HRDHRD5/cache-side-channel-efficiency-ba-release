@@ -1,0 +1,263 @@
+
+\subsection{\acf{CbCC}}
+Soll ein Programm von einem Computer ausgeführt werden,
+ohne dass ihm vollständig vertraut werden kann,
+erhält es zumindest Eingabeparameter
+und ohne weitere Restriktionen hardware-spezifische und
+ähnliche Informationen. Aus Sicht der Sicherheit besteht die
+Möglichkeit, die Zugriffe des Programms auf absolut nötige
+Ressourcen zu beschränken. Allerdings auch dann könnte das
+Programm Informationen erhalten, die es zwar verarbeiten,
+aber nicht an Dritte weiterleiten soll. Das Verhindern solcher
+Informationsflüsse wurde bereits von \cite{lampson_note_1973}
+als das „Confinement Problem“ beschrieben. Es bezieht sich auf
+das Übertragen von Informationen eines Programms nicht an das
+Programm oder den Nutzer, der es aufgerufen hat, sondern an den
+„Owner“, also beispielsweise den Ersteller des Programms.
+Die verschiedenen Wege der Informationsübertragung lassen sich
+dabei in drei verschiedene Kategorien einordnen: in
+Speicher, legitime Kanäle und sogenannte verdeckte, also
+„Covert“-Channel, die implizit Informationen über nicht dafür
+vorgesehene Zustände wie beispielsweise die Prozessorauslastung
+übertragen. (\cite[613,614]{lampson_note_1973})
+
+Wird auf diesem Wege eine Information nicht absichtlich von einem
+„Insider“ an einen „Outsider“ gesendet, sondern kann dieser
+Outsider aus der Beobachtung dieser Kanäle auf Informationen des
+inneren Zustands eines Systems schließen, dann handelt es sich
+um einen Seitenkanal, also einen Side-Channel.
+(\cite[1]{almgren_c5_2015}, \cite[1]{wang_covert_2006})
+
+Covert-Channel können grob in zwei Kategorien eingeteilt werden,
+deren mögliche Verwendung stark vom jeweiligen Kontext abhängt.
+\cite[3]{paccagnella_lord_2021} unterscheiden nach
+eviction- und contention(Konkurrenz)-basierten Covert-Channels.
+Evictionbasierte Channels bringen die Mikroarchitektur zunächst
+in einen bekannten Zustand, um anschließend die Veränderung nach
+der Ausführung des Senders zu beobachten und entsprechende
+Informationen abzuleiten. Contentionbasierte Channels
+encodieren dagegen die Information nicht in einem festen Zustand,
+sondern in der Stärke der Konkurrenz um geteilte Ressourcen, die
+sich beispielsweise als Zugriffszeit messen lässt.
+
+Im Kontext von Transient Execution werden häufig
+evictionbasierte Covert-Channel genutzt, da bei contentionbasierten 
+Kanälen die Ausführung von Sender und Empfänger zeitgleich
+stattfinden muss und damit nur ein binärer Wert je transient
+Fenster übertragen werden kann. Dennoch existiert Forschung zu
+diesen Kanälen, da viele Mitigationen gegen
+klassische evictionbasierte Covert-Channel hier nicht wirken.
+(\cite[8]{fustos_spectrerewind_2020})
+
+\subsubsection{Cache als Informationsmedium}
+Jedes komplexere Programm löst bei seiner Ausführung Prozesse in
+der Speicherarchitektur aus. In höher abstrahierten Sprachen,
+werden diese Prozesse nur implizit sichtbar, während bei Assembly
+diese beispielsweise durch „mov“-Instruktionen ausgelöst
+werden. Die x86-\ac{ISA} spezifiziert auch sehr granulare
+Operationen auf der Mikroarchitektur des Speichers beispielsweise
+durch die „prefetch“-Instruktion
+(\cite{oracle_prefetch_2020}).
+
+Der Zustand, ob eine bestimmte Adresse gecacht oder nicht gecacht
+ist, kann als Information
+interpretiert und damit als Covert-Channel betrachtet werden.
+Da dieser Zustand nicht durch die \ac{ISA} sichtbar ist,
+wird die Zugriffszeit auf eine Adresse gemessen und anhand eines
+zeitlichen Schwellenwerts bestimmt, ob diese Adresse gecacht ist oder
+nicht. Dieser Schwellenwert kann durch vorherige empirische
+Messungen in demselben System festgelegt werden.
+Neben der einfachen Encodierung von Werten durch den Zustand einer
+Adresse im Cache existieren weitere Low-Level-Covert-Channels, die
+ebenfalls den Cache oder Elemente der
+Cachearchitektur nutzen. Ein solcher Ansatz wird in Anhang
+\ref{appendix:advanced-cbcc} erläutert. In dieser Arbeit
+liegt der Fokus jedoch auf Covert-Channels, bei denen
+Informationen in den Zustand von Adressen kodiert werden.
+
+Ursprünglich konzentrierten sich Angriffe mit \ac{CbCC} vor allem
+auf Side-Channels zum Mitlesen kryptografischer Prozesse
+zwischen Prozessen und virtuellen Maschinen
+(\cite{bernstein_cache-timing_2005}, \cite{zhang_cross-vm_2012},
+\cite{su_survey_2021}). Es wurden jedoch auch Covert-Channels mit
+einem vom Angreifer kontrollierten Sender betrachtet, insbesondere
+im Kontext von Cross-VM Kommunikation
+(\cite{xu_exploration_2011}, \cite{maurice_hello_2017}).
+
+Besonders relevant sind \ac{CbCC} seit
+\cite{kocher_spectre_2019} jedoch für Angriffe mit
+spekulativer Ausführung, wie in Abschnitt
+\ref{section:spectre} erläutert wird.
+
+\paragraph{Das Encodieren}
+erfordert das Schreiben unabhängiger Zuständen in den Cache.
+Dazu wird ein Speicherbereich
+allokiert und einzelne Adressen werden als Informationswerte geladen
+beziehungsweise evicted. Der Abstand zwischen diesen Adressen
+wird als „Stride“ bezeichnet und muss mindestens der Größe eines
+Cache-Blocks entsprechen, da sich sonst mehrere Informationsadressen
+in einem Block befinden und  diese damit nicht mehr unabhängig sind.
+Moderne \acp{CPU} implementieren einen Stride-Prefetcher, der Adressen mit
+einem regelmäßigen Abstand innerhalb einer Memory-Page prefetchen kann
+(\cite[739]{saileshwar_streamline_2021}). Aus diesem Grund sollte zur
+Veringerung der Fehlerwahrscheinlichkeit als Stride die Größe
+einer Memory-Page gewählt werden, um das Prefetchen von naheliegenden
+Adressen zu verhindern. Diese Beobachtung zeigt sich in Abschnitt
+\ref{section:experimental-results} an praktischen Messungen.
+
+Für \ac{CbCC} wurden von \cite[13]{mcilroy_spectre_2019} zwei
+Encodierungen betrachtet: „direct-mapped bits“ (bitweise) und
+„indexed values“ (Array-Index). Bei der bitweisen Encodierung
+symbolisiert jede verwendete Adresse ein Informationsbit durch
+den Zustand, ob die Adresse gecacht oder nicht gecacht ist.
+Bei der Array-Index-Encodierung wird die Information, als
+Zahlenwert interpretiert und die Adresse mit diesem Index gecacht.
+Das bedeutet in der Programmierung, dass $Array+(Stride*Secret)$
+in den Cache geladen wird, wobei $Array$ die Startadresse des
+Arrays ist.
+Die Anzahl der während eines transient Fensters übertragenen
+Informationen wird in dieser Arbeit in Bit betrachtet. Entsprechend
+können während eines transient Fenster $n$ Bit übertragen werden,
+wenn die Encodierung den Cache innerhalb des Fensters in $2^n$
+verschiedene Zustände versetzen kann.
+
+Der größte Vorteil von Array-Index-Encodierung besteht darin,
+dass die Informationsübertragung grundsätzlich nicht von der
+Länge des transient Fensters abhängt, da für die Encodierung
+nur ein Memory Load oder Eviction nötig ist. Der Nachteil besteht
+darin, dass der bitweise Informationsgehalt einer Übertragung
+$\log_{2}\left(\frac{Array}{Stride}\right)$ beträgt und
+$\frac{Array}{Stride}$ verwendete Adressen evictet und
+zeitlich gemessen werden müssen. Bei der bitweisen Encodierung
+müssen dagegen nur so viele Adressen
+evictet und gemessen werden, wie Informationsbits übertragen
+werden. Dafür ist die Anzahl der übertragenen Bits durch die
+Größe des transient Fensters begrenzt. Eine gewisse
+Kombination der beiden Konzepte ist auch möglich und wurde in
+den \acp{POC} von Angriffen, wie beispielsweise
+in \cite{hertogh_rain_nodate}, realisiert. Dort wurde ein Byte
+in zweimal 16 Adressen, anstatt in 256 Adressen
+encodiert. Dafür wurde das zu übertragende Byte in zwei 4-Bit
+große Teile geteilt und der numerische Wert jeweils als Index
+in ein Array mit 16 Adressen encodiert. Aus diesem Grund mussten
+für diese Encodierung allerdings zwei Adressen während der
+Transient Execution geladen werden, anstatt nur eine.
+
+\paragraph{Die Übertragung}
+durch evictionbasierte \ac{CbCC} erfolgt wie die meiste
+Kommunikation in drei Schritten: Vorbereitung, Encodierung
+und Auslesen. Die Vorbereitung besteht darin
+das Medium in einen bekannten Zustand zu versetzen.
+Die Encodierung verändert den Zustand des Mediums und bei dem
+Auslesen wird der potenziell veränderte Zustand gemessen.
+Während bei contentionbasierten Covert-Channels die Encodierung
+und das Auslesen zeitgleich stattfinden, erfolgen diese Phasen
+bei \ac{CbCC} sequenziell in der genannten Reihenfolge.
+Im Kontext von Transient Execution können diese Phasen
+sowohl in dem vom Angreifer kontrollierten, als auch im Ziel
+Kontext stattfinden. Dadurch kann es passieren, dass die beiden
+Prozesskontexte keine Speicherbereiche teilen und damit ein
+direkter Zugriff auf geteilte Ressourcen nicht
+möglich ist. (\cite[15]{xiong_survey_2022})
+
+Um dennoch den Cache-Zustand einer Adresse
+außerhalb des zugreifbaren Speichers zu ermitteln, werden
+häufig Eviction-Sets verwendet. Dabei kann durch vorherige
+Messungen bestimmt werden, welche der eigenen Adressen zu
+einem Eviction-Set anderer Adressen im Ziel Kontext gehören
+(\cite{vila_theory_2019}). Das Laden dieser Adressen im
+Zielkontext führt zur Eviction einer Adresse im eigenen
+Adressraum, wenn die physischen Einträge des
+Eviction-Sets vorher gefüllt wurden
+(\cite[607]{liu_last-level_2015}).
+
+\paragraph{Störungen\label{section:cbcc-disturbance}} bei der
+Übertragung durch \ac{CbCC} können
+durch verschiedene mehr oder weniger beeinflussbare Faktoren
+auftreten. Auch hier sind die Störungsquellen abhängig von der
+konkreten Implementierung. Störungen und daraus folgende Fehler
+wurden besonders bei contentionbasierten \ac{CbCC} untersucht,
+wobei die Fehlerquellen nicht identisch zu den möglichen
+Störungen bei evictionbasierten \ac{CbCC} sind. Bei \ac{CbCC}
+ist ein zentrales Problem die Synchronisierung
+und die damit verbundenen Timing-Probleme
+(\cite[6,8]{maurice_hello_2017}),
+was im Kontext von Transient Execution kein Problem darstellt.
+Andere Störungsquellen sind bei Transient Execution dennoch
+identisch zu contentionbasierten \ac{CbCC} zwischen zwei
+verschiedenen Kontexten. Beispiele hierfür sind
+das Laden anderer Adressen aus demselben Cache-Block durch
+dasselbe Programm, zufälliges Laden durch den Prefetcher
+der \ac{CPU} oder zufällige Evictions durch das Laden von
+Adressen im selben Eviction-Set durch dasselbe oder ein anderes
+Programm. Zusätzlich kann je nach \ac{CPU} Architektur das
+Scheduling zu Fehlern führen. Wenn beispielsweise bei der Cache
+Architektur aus Abbildung \ref{figure:cache-architecure-amd-a10}
+der Prozess vor dem Auslesen auf einen anderen Kern verschoben
+wird, ist es aufgrund des private \ac{LLC} nicht mehr möglich bei
+dem Laden der Adresse den encodierten Zustand abzufragen.
+(\cite[4]{wu_whispers_2012})
+Covert-Channel, bei denen sich Sender und Empfänger nicht auf
+demselben Kern befinden müssen, werden als Cross-Core-Channels
+bezeichnet.
+
+\subsubsection{Realisierung verschiedener Cache-Covert-Channel}
+Obwohl das Kommunikationsmedium bei \ac{CbCC} grundsätzlich immer
+der Zustand einer Adresse ist, also ob diese Adresse gecacht ist
+oder nicht, kann sich die Methode für das Verändern des Zustands, das
+Lesen des Zustands und auch die konkret gemessenen Zustände,
+zwischen verschiedenen Techniken stark unterscheiden.
+
+Viele einfache Cross-Core-\ac{CbCC} nutzen als Encodierung die
+unterschiedlichen Zugriffszeiten, je nachdem, ob sich eine Adresse
+im Cache oder nur im Speicher befindet. Die Methoden
+zum Verändern beziehungsweise Lesen des Zustands umfassen dabei
+meist die \verb|clflush|-Instruktion und das Laden
+oder Schreiben von Adressen. (\cite[722]{yarom_flushreload_2014},
+\cite[6]{almgren_c5_2015})
+
+Diese Art von \ac{CbCC} wurde bei bisher demonstrierten
+\acp{TEA} häufig verwendet (\cite[23]{xiong_survey_2022}), auch wenn
+komplexere Techniken, die besonders die unteren Cacheschichten
+verwenden, deutlich höhere Bandbreiten erreichen können,
+teilweise auch bei Cross-Core Kommunikation und ohne geteilte
+Speicherbereiche.
+(\cite[13]{almgren_c5_2015}, \cite[10]{wang_bandwidthbreach_2023},
+\cite[5]{rauscher_systematic_2025})
+
+Wie bereits erwähnt, sind durch Eviction-Sets auch Covert-Channel
+ohne geteilte Speicherbereiche möglich. Ist ein Eviction-Set
+gefunden, kann durch gezieltes Laden dieser Adressen eine
+Eviction ausgelöst und damit der Zustand des Caches in beiden
+Speicherkontexten verändert werden. Der Angreifer kann anschließend
+prüfen, ob eine seiner Adressen aus dem Eviction-Set aus dem Cache
+entfernt wurde und dadurch ermitteln, welche Adresse geladen wurde.
+Diese Technik wurde, wie viele andere \ac{CbCC}, ursprünglich als
+Side-Channel Angriff auf Verschlüsselung angewendet
+(\cite[10-13]{hutchison_cache_2006}) und später für Cross-Prozess
+beziehungsweise Cross-VM Covert-Channel Kommunikation
+(\cite[620]{liu_last-level_2015}) genutzt. Ein Nachteil dieses
+Covert-Channels ist der Aufwand Eviction-Sets zu finden und diese
+vor der Übertragung mit Blöcken zu füllen.
+
+Welche \ac{CbCC} für einen Angriff verfügbar sind, hängt von der
+Hardware, also der Anzahl und Eigenschaften der Cache-Ebenen, von der
+\ac{ISA} sowie von dem Kontext des Ziel- und Angreiferprogramms ab. So
+wird beispielsweise bei Flush+Reload die Adresse vom Zielkontext in
+alle Cache-Ebenen geladen. Der Angreiferkontext kann beim Reload
+die Adresse sowohl aus dem \ac{LLC}, als auch dem L1- oder L2-Cache
+laden, je nachdem ob sich der Prozess auf demselben oder einem
+anderen Prozessor Kern befindet (\cite[23]{xiong_survey_2022}) und
+sofern von einem inclusive, private L1- und L2-Cache sowie einem
+geteilten L3-Cache ausgegangen wird.
+
+Schon durch kleine Änderungen können \ac{CbCC} je nach Kontext
+optimiert werden. Ein Beispiel dafür ist Flush+Flush
+als Abwandlung von Flush+Reload.
+Anstatt eine Adresse zum Auslesen zu laden, wird die Adresse erneut
+mit \verb|clflush| aus dem Cache entfernt. Wenn die Adresse gecacht
+ist, weist diese Instruktion eine leicht höhere Laufzeit auf, die
+gemessen werden kann. (\cite[4]{caballero_flushflush_2016})
+
+Verschiedene Techniken werden in Anhang
+\ref{appendix:cbcc-techniques} ausführlicher erläutert.

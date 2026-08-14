@@ -1,0 +1,178 @@
+\documentclass[german,aspectratio=169]{beamer}
+% all of the packages
+\usepackage[german]{babel}
+\usepackage{import}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{multicol}
+\usepackage[printonlyused]{acronym}
+\usepackage{chronology}
+\usepackage{appendixnumberbeamer}
+\usetikzlibrary{positioning}
+\usetikzlibrary{decorations.pathreplacing,calligraphy}
+\setbeameroption{hide notes}
+
+\def\True{1}
+\def\False{0}
+
+% Including a bunch of other Tex things
+\import{}{presets.tex}
+\import{}{Informationen.tex}
+
+\if\UsePDFPC\True
+  \usepackage[overridenote]{pdfpc}
+  \renewcommand{\note}{\pdfpcnote}
+\else
+  \setbeameroption{show notes on second screen=right}
+\fi
+
+% setting the settings for biber as a backend
+\usepackage[
+    backend=biber,
+    hyperref=true,
+    url=false,
+    style=numeric-comp,
+    autocite=footnote,
+    maxbibnames=99,
+    time=24h,
+    sorting=ynt]{biblatex}
+\bibliography{sources.bib}
+
+% pgfplot setup
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{fillbetween}     % Fill between curves
+\usepgfplotslibrary{statistics}      % Box plots, histograms
+\usepgfplotslibrary{polar}           % Polar plots
+\usepgfplotslibrary{colorbrewer}     % Color schemes
+\usepgfplotslibrary{colormaps}       % Additional colormaps
+\usepgfplotslibrary{groupplots}
+
+% Load TikZ libraries (also used by PGFPlots)
+\usetikzlibrary{patterns}            % Fill patterns
+\usetikzlibrary{arrows.meta}         % Arrow styles
+\usetikzlibrary{positioning}		 % Easier relative positioning
+\usetikzlibrary {backgrounds}		 % Backgrounds!
+\usetikzlibrary{tikzmark,decorations.pathreplacing} % tikz overlay stuff
+
+% some stling information
+\usetheme{Boadilla}
+% setting all of the default things
+\usefonttheme{professionalfonts}
+% doing all of the color things
+\usecolortheme{lily}
+
+% setting the colors for blocks
+\setbeamercolor{block body alerted}{bg=alerted text.fg!10}
+\setbeamercolor{block title alerted}{bg=alerted text.fg!20}
+\setbeamercolor{block body}{bg=structure!10}
+\setbeamercolor{block title}{bg=structure!20}
+\setbeamercolor{block body example}{bg=green!10}
+\setbeamercolor{block title example}{bg=green!20}
+
+% make appendix roman slide numbering
+\defbeamertemplate{footline}{page number appendix}
+{%
+  \hfill%
+  \usebeamercolor[fg]{page number in head/foot}%
+  \usebeamerfont{page number in head/foot}%
+  \insertpagenumber\kern1em\vskip2pt%
+}
+\makeatletter
+\g@addto@macro\appendix{%
+  \setbeamertemplate{footline}[page number appendix]%
+  \renewcommand*{\insertpagenumber}{%
+    \Roman{framenumber}%
+  }%
+}
+\makeatother
+
+% Custom Titlepage
+\ifthenelse{\equal{\Company}{}}{
+  \author{\Author}
+}{
+  \author{\Author\space (\Company)}
+}
+
+\ifthenelse{\equal{\Erstgutachter}{}}{}{
+  \subtitle{%
+    betreut durch \Erstgutachter
+  }
+}
+
+\addtobeamertemplate{institute}{}{%
+  \ifthenelse{\equal{\MatrNummer}{}}{}{%
+    \textit{\tiny Matr. Nr: \MatrNummer}%
+  }
+}
+
+\addtobeamertemplate{author}{}{%
+  \ifthenelse{\equal{\Contact}{}}{}{%
+    \vspace{-0.4cm}%
+    \textit{\scriptsize Email: \Contact}%
+  }
+}
+
+\renewcommand{\ac}{\acs}
+\renewcommand{\acp}{\acsp}
+
+\begin{document}
+
+  % removing navigation symbols
+  % TODO : add a toggle fir this in the future maybe.
+  \setbeamertemplate{navigation symbols}{}
+  \setbeamertemplate{itemize items}[circle]
+  \setbeamertemplate{enumerate items}[circle]
+  \setbeamertemplate{sections/subsections in toc}[circle]
+
+  \if\Logo\True
+  % doing the logo stuff for the presentation
+  % URL :https://leibniz-fh.de/content/uploads/2021/03/Symbolbild_Logo-L-FH.jpg
+  \logo{
+    \begin{tikzpicture}[overlay,remember picture]
+      \node[below=0.5cm,left=-0.3cm] at (current page.30){
+        \includegraphics[width=1cm]{img/Symbolbild_Logo-L-FH.jpg}
+      };
+    \end{tikzpicture}
+  }
+
+  % simply changing it for the start page
+  % url: https://www.mystipendium.de/hochschulen/leibniz-fh
+  \titlegraphic{
+    \begin{tikzpicture}[overlay,remember picture]
+      \node[left=0.4cm,below=-0.3cm] at (current page.30){
+        \includegraphics[width=2cm]{img/Symbolbild_Logo-L-FH.jpg}
+      };
+    \end{tikzpicture}
+  }
+  \fi
+
+  \title{\workingTitle}
+
+  \begin{frame}
+    \titlepage
+  \end{frame}
+
+  \begin{frame}
+    \frametitle{Abkürzungsverzeichnis}
+    \input{Abkuerzungen.tex}
+  \end{frame}
+
+  \begin{frame}
+    \frametitle{Inhaltsverzeichnis}
+    \tableofcontents
+  \end{frame}
+
+  % including all other slides
+  \import{}{slides.tex}
+
+  \section{Literatur}
+  \begin{frame}[allowframebreaks]{Literatur}
+
+    % Important that things are included you must also cite them
+    \printbibliography
+  \end{frame}
+
+  \appendix
+  \import{}{ergaenzungen.tex}
+
+\end{document}

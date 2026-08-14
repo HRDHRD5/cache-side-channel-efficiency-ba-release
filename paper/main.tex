@@ -1,0 +1,288 @@
+\documentclass[a4paper, 11pt, german]{article}
+\usepackage[german]{babel}
+%\usepackage{biblatex}
+\usepackage{titling} % ja es gibt andere wege wie man das in ohne dieses package machen kann aber habe keinen zum funktioniern bekommen
+\usepackage{float}
+\usepackage{tikz,tikzpagenodes}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage[hidelinks]{hyperref}
+\usepackage{subcaption}
+\usepackage{graphicx}
+\usepackage{pgfplots}
+\usepackage{csquotes}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{acronym}
+
+%\usepackage{digsig} % sollte in TEX live installiert sein wird nur für signaturen benötigt
+
+\usepackage[
+backend=biber,
+style=apa
+]{biblatex}
+\addbibresource{quellen.bib}
+
+% For huge plots
+%\usepgfplotslibrary{external}
+%\tikzexternalize
+
+% pgfplot setup
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{fillbetween}     % Fill between curves
+\usepgfplotslibrary{statistics}      % Box plots, histograms
+\usepgfplotslibrary{polar}           % Polar plots
+\usepgfplotslibrary{colorbrewer}     % Color schemes
+\usepgfplotslibrary{colormaps}       % Additional colormaps
+\usepgfplotslibrary{groupplots}
+
+% Load TikZ libraries (also used by PGFPlots)
+\usetikzlibrary{patterns}            % Fill patterns
+\usetikzlibrary{arrows.meta}         % Arrow styles
+\usetikzlibrary{positioning}		 % Easier relative positioning
+\usetikzlibrary {backgrounds}		 % Backgrounds!
+\usetikzlibrary{tikzmark,decorations.pathreplacing} % tikz overlay stuff
+
+% C Listing style
+\definecolor{commentgreen}{RGB}{2,112,10}
+\definecolor{eminence}{RGB}{108,48,130}
+\definecolor{weborange}{RGB}{255,165,0}
+\definecolor{frenchplum}{RGB}{129,20,83}
+\lstset {
+    language=C,
+    frame=tb,
+    tabsize=4,
+    showstringspaces=false,
+    numbers=left,
+	breaklines=true,
+    %upquote=true,
+    commentstyle=\color{commentgreen},
+    keywordstyle=\color{eminence},
+    stringstyle=\color{red},
+    basicstyle=\scriptsize\ttfamily, % basic font setting
+    emph={int,char,double,float,unsigned,void,bool},
+    emphstyle={\color{blue}},
+    escapechar=\&,
+    % keyword highlighting
+    classoffset=1, % starting new class
+    otherkeywords={>,<,.,;,-,!,=,~},
+    morekeywords={>,<,.,;,-,!,=,~},
+    keywordstyle=\color{weborange},
+    classoffset=0,
+}
+\lstset{escapeinside={@@}{@@}}
+
+% der Geometrie
+\geometry{top=2.5cm, bottom=2.0cm , left=4.0cm , right=2.0cm ,a4paper}
+
+% definiert true and false
+\def\True{1}
+\def\False{0}
+
+
+% alles was irgendwie mit fonts, font groessen und so zu tun hat
+
+% if you really care for ariel simply use this
+% you wont be able to use the makefile since that uses the wrong compiler as of now.
+%\usepackage{fontspec}
+%\setmainfont{Arial}
+
+% mehr Informationen zu diesem Probelm
+% https://tex.stackexchange.com/questions/23957/how-to-set-font-to-arial-throughout-the-entire-document
+% Dies dient als fallback option falls es mit true ariel nicht funktioniert
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\ifx\numexpr\undefined\else \usepackage[T1]{fontenc} \fi %eTeX is activated
+\ifx\mubyte\undefined\else \usepackage[T1]{fontenc} \fi %encTeX is activated
+\ifx\pdftexversion\undefined\else \usepackage[T1]{fontenc} \fi %pdfTeX is working
+\ifx\XeTeXrevision\undefined\else \usepackage{fontspec} \fi %XeTeX is working
+\ifx\directlua\undefined\else \usepackage{fontspec} \fi %LuaTeX is working
+
+
+\onehalfspacing % sollte denn Zeilenabstand auf 1.5 setzten
+
+\input{packages.tex}
+
+\def\quellen{Quellenverzeichnis} % Quellen
+
+% setting date to the korrect format
+\usepackage[ddmmyyyy]{datetime}
+\renewcommand{\dateseparator}{.}
+
+
+\begin{document}
+
+\include{Inhalt/Informationen.tex}
+
+\if\parenthesisCite\True
+	\let\cite\parencite
+\fi
+
+% Hauptseiten Zeug
+\begin{titlepage}
+	\if\BachlorThesis\True
+		\newgeometry{top=4cm, bottom=10cm , left=2.29cm , right=2.29cm}
+		\begin{center}
+
+			\textbf{\thetitle}\\
+			\vspace{2cm}
+			Bachelor-Thesis\\
+			an der \\
+			\Hochschulname\\
+			im Rahmen des Studiengangs \\
+			\Studiengang \\
+			zum \Abschlussbezeinung\space (B.Sc.) \\
+
+			\vspace{0.5cm}
+			vorgelegt von \\
+			\theauthor \\
+			aus\\
+			\Addresse\\
+			\Email\\
+
+			\vspace{0.5cm}
+			Matr.-Nr.: \MatrNummer\\
+
+			\vfill
+			Erstgutachter: \Pruefer \\
+			Zweitgutachter: \ZweitGutachter \\
+			\vspace{0.5cm}
+			Abgabe: \thedate
+		\end{center}
+
+	\else
+
+		\newgeometry{top=4cm, bottom=5cm , left=2.29cm , right=2.29cm}
+		\raggedright
+		\Hochschulname \\
+		\Studiengang\\
+		Betreut durch: \Pruefer
+
+		\vfill
+		\begin{center}
+			\ArtArbeit\\
+			\vspace{1ex}
+			im Fach \Modul~im \Semester\\
+
+			\vspace{3.5cm}
+			\textbf{\thetitle}
+
+		\end{center}
+
+		\vfill
+		\theauthor\\
+		\Addresse\\
+		Matr.-Nr.: \MatrNummer\\
+		\vspace{1ex}
+		E-Mail-Adresse \Email\\
+		\vspace{3ex}
+		Abgabedatum: \thedate
+
+	\fi
+\end{titlepage}
+\restoregeometry
+
+% Table of Contents und Sperrvermerk
+\pagenumbering{Roman}
+\clearpage
+
+\if\Acronyms\True
+	\addcontentsline{toc}{section}{\acrotitle}
+	\section*{\acrotitle}
+	\input{Inhalt/Abkuerzungen.tex}
+	\clearpage
+\fi
+
+\addcontentsline{toc}{section}{\contentsname}
+\tableofcontents
+\clearpage
+
+\addcontentsline{toc}{section}{\listfigurename}
+\listoffigures
+\clearpage
+
+
+% nSperrvermerk wennötig
+% einstellbar in Information.tex
+\if\Sperrvermerk \True
+ \section*{Sperrvermerk}
+ Die in dieser schriftlichen Arbeit enthaltenen Informationen sind vertraulich und ausschließlich
+ für die entsprechenden Prüfer und Mitarbeiter der \Hochschulname~bestimmt.
+Jeglicher Zugriff durch andere Personen, Veröffentlichung, Vervielfältigung,
+Verteilung oder sonstige in diesem Zusammenhang stehende Handlung sind nur mit ausdrücklicher
+Genehmigung der Verf. und \Firma\space zulässig. Darüber hinaus besitzt der
+Verf. die urheberrecht\-lichen Ansprüche und \Firma\space die Nutzungsrechte
+an bzw. aus dieser Arbeit.
+\clearpage
+\fi
+
+
+% including most of the random text stuff
+\pagenumbering{arabic}
+
+
+\section{Einführung}
+\input{Inhalt/Part1}
+\clearpage
+\section{Theoretischer Hintergrund}
+\input{Inhalt/Part2}
+\input{Inhalt/Part3}
+\input{Inhalt/Part4}
+\clearpage
+\section{Methodik und Auswertung}
+\input{Inhalt/Part5}
+\input{Inhalt/Part6}
+\clearpage
+\section{Fazit}
+\input{Inhalt/Part7}
+
+\clearpage
+\addcontentsline{toc}{section}{\bibname}
+\printbibliography
+
+\include{Inhalt/Anhang}
+
+% Ehrenwörtliche Erklärung
+
+\clearpage
+\section*{Ehrenwörtliche Erklärung}
+Hiermit versichere ich, dass die vorliegende Arbeit von mir selbstständig und ohne unerlaubte Hilfe
+angefertigt worden ist, insbesondere, dass alle Stellen, die wörtlich oder sinngemäß aus
+Veröffentlichungen entnommen sind, durch Zitate als solche kenntlich gemacht wurden.
+Diese Versicherung bezieht sich auch auf die in der Arbeit verwendete bildliche Darstellungen,
+Tabellen, Zeichnungen, Skizzen, grafischen Darstellungen und dergleichen sowie auch für die
+Verwendung von text- oder Code-generierenden KI-Werkzeugen als Quelle.
+\vspace{1ex}\\
+Die Arbeit hat in gleicher oder ähnlicher Form noch keiner Prüfungsbehörde vorgelegen und ist nicht
+veröffentlicht. Sie wurde nicht, auch nicht auszugsweise, für eine andere Prüfungs- oder
+Studienleistung verwendet.
+\vspace{1ex}\\
+Ich bin damit einverstanden, dass die Arbeit einer elektronischen Plagiatsprüfung unterzogen werden
+kann. Die Regelungen der Prüfungsordnung zur Täuschung habe ich zur Kenntnis genommen.
+\vspace{1ex}\\
+Die von mir abgegebenen schriftlichen (gebundenen) Versionen der
+vorliegenden Arbeit stimmen inhaltlich mit der eingereichten
+elektronischen Fassung überein.
+% TODO toggel hinzufügen
+
+\vspace{3ex}
+
+\begin{flushright}
+	\begin{tikzpicture}
+		\node[] (line) {Ort, 1.6.2026,};
+		%\node[] (sign) [right=0cm of line.east, yshift=0.2cm] {\includegraphics[height=1cm]{img/unterschrift.png}};
+	\end{tikzpicture}
+\end{flushright}
+
+%\if\digitalSig\True
+%
+%  \begin{Form}
+%
+%  \digsigfield{5cm}{3cm}{Meine Unterschrift}
+%\end{Form}
+%\else
+%  Meine Unterschrift
+%\fi
+
+
+\end{document}

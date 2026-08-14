@@ -1,0 +1,49 @@
+
+Da bisher keine praktische Implementierung der bitweisen
+Encodierung existiert, besteht das erste Ziel dieser Arbeit
+darin, zu zeigen, dass eine bitweise Übertragung möglich
+ist und welche Grenzen sie hat. Dieser experimentelle
+Abschnitt gibt erste Einblicke in die
+Betrachtung der Fehlerwahrscheinlichkeiten der beiden
+Encodierungen sowie in ihren Einfluss auf die Laufzeit.
+Die danach ermittelte
+theoretische Grenze betrachtet nicht die Korrektheit
+einer Übertragung und geht davon aus, dass Übertragungen
+durch den \ac{CbCC} immer korrekte Ergebnisse liefern.
+
+\subsection{Threat-Model}
+Um die Möglichkeiten der Optimierung des \ac{CbCC}
+einzugrenzen, wird das fol\-gende Threat-Model für
+\acp{TEA} betrachtet:
+
+\paragraph{Der Angreifer hat}
+\begin{itemize}
+    \item Code-Execution auf dem
+    physischen Zielsystem. (in Sandbox/VM oder als Prozess)
+    \item Zugriff auf Zeitmessungen mit
+    mindestens einer Millisekunde Auflösung.
+    \item einen Angriff, mit dem er während eines transient
+    Fensters Zugriff auf ein gesuchtes Secret hat.
+    \item die Möglichkeit, während des transient Fensters eigenen
+    Code auszuführen.
+    \item Zugriff auf Methoden, um Cache-Zustände mindestens durch
+    das Laden von Adressen zu ändern.
+    \item einen geteilten Speicherbereich mit dem Zielkontext.
+    (z.B. könnte der Zielkontext Zugriff auf physischen Speicher haben)
+\end{itemize}
+
+\paragraph{Verschiedene  Angriffe} aus der Vergangenheit,
+die für dieses Threat Model infrage kommen sind
+\cite{lipp_meltdown_2020}, \cite{maisuradze_ret2spec_2018},
+\cite{schwarz_zombieload_2019} Variante 2,
+\cite{kim_slap_2025}, \cite{kim_flop_2025},
+\cite{kim_ileakage_2023}, \cite{hertogh_rain_nodate}.
+Hierbei sei zu beachten, dass sich der Anwendungsbereich bei
+fehlendem geteilten Speicherbereich leicht erweitern lässt,
+da die grundlegenden Konzepte auch für \acp{CbCC} gelten,
+die auf Eviction-Sets basieren, wie z.B. Prime+Probe
+(\cite{liu_last-level_2015}). Primär ändert sich der Aufwand
+durch das Finden von Eviction-Sets, was bereits zu einem
+Aufwand von unter 100 Millisekunden optimiert wurde (\cite[3768]{kessous_pruneplumtree_2024}),
+und das Füllen der Cache-Sets während der Setup-
+beziehungsweise Prime-Phase.

@@ -1,0 +1,520 @@
+
+\subsection{Methodik der experimentellen Betrachtung}
+Durch die Literaturrecherche konnten bereits verschiedene
+Aspekte zur zeitlichen Optimierung von \acp{TEA} identifiziert
+werden. Vorrangig
+wurde dafür der verwendete Covert-Channel - meist \ac{CbCC} -
+identifiziert. Um die Möglichkeiten zur Optimierung und
+damit die Grenzen von \ac{CbCC} im Kontext von Transient
+Execution zu identifizieren, wurde ein Test-Programm entwickelt,
+welches die zwei verschiedenen Encodierungen mit verschiedenen
+Parametern misst. Auf dieser Basis werden die unterschiedlichen
+Techniken verglichen und die Parameter ermittelt, welche
+hardwarespezifisch betrachtet werden müssen.
+Zeitliche Messungen werden mit der
+\verb|rdtsc|-Instruktion aufgenommen und deshalb in
+\ac{CPU}-Zyklen angegeben.
+
+\paragraph{Der Programmablauf} des Test-Programms für $i$
+Trainingsläufe und $n$ übertragene Bits ist im Folgenden
+dargestellt:
+
+\begin{figure}[H]
+    \begin{enumerate}
+        \item Ermittlung zeitliche Grenze gecacht/nicht gecacht (tiefer in
+        Anhang \ref{appendix:explanation-on-cache-measurements} erläutert)
+        \item \tikzmark{start-measurement}Allokation des Trainingsdaten- ($i+1$ Elemente) und
+        Covert-Channel-Arrays
+        \item \label{enumerate:set-training-values}Trainings-Array
+        Wert für Index $j$ auf Wert $j$ setzen
+        \item Flushen des Training- und Covert-Channel-Arrays
+        (Trainings-Array wird nur Index $i$ geflusht) und Laden des Secrets
+        \item Trainieren des Predictors (Ausführen von Transfer mit Index
+        $0$ bis $i-1$)
+        \item \label{enumerate:transient-function}Prüfung, ob
+        $Array[i]<i$ führt zu spekulativer Ausführung
+        \begin{itemize}
+            \item \tikzmark{start-transient}Schleife über Anzahl übertragener
+            Bits \textrightarrow\space Aufbau Bitmaske
+            \item Für bitweise Encodierung jede Iteration laden, bzw. nicht
+            laden des Index
+            \item Für Array-Index-Encodierung, Bitmaske über Secret legen
+            \textrightarrow\space Index aus Covert-Channel-Array laden
+            (einmalig nach Aufbau der Bitmaske)
+            \item $Array[i]<i$ wird evaluiert, sobald $Array[i]$ geladen
+            \textrightarrow\space führt zu Rollback (da Wert
+            \tikzmark{end-transient}entsprechend
+            Schritt \ref{enumerate:set-training-values} gesetzt)
+        \end{itemize}
+        \item \tikzmark{end-measurement} Auslesen des Secrets aus Cache-Zustand
+        \item Schreiben der Werte in die Ergebnisdatei
+    \end{enumerate}
+    \begin{tikzpicture}[remember picture,overlay]
+        \coordinate (a) at ({pic cs:start-measurement});
+        \coordinate (b) at ({pic cs:end-measurement});
+        \coordinate (c) at ({pic cs:start-transient});
+        \coordinate (d) at ({pic cs:end-transient});
+        \draw [decoration={brace,mirror},thick,decorate] ([yshift=2ex,xshift=2ex]a -| current page text area.west) -- node [midway,left,rotate=90,anchor=south,inner sep=5pt] {zeitliche Messung}  ([yshift=-.5ex,xshift=2ex]b -| current page text area.west);
+        \draw [decoration={brace,mirror},thick,decorate] ([yshift=2ex,xshift=7ex]c -| current page text area.west) -- node [midway,left,rotate=90,anchor=south,inner sep=5pt] {Transient Execution}  ([yshift=-.5ex,xshift=7ex]d -| current page text area.west);
+    \end{tikzpicture}
+    \caption{Aufbau des Test-Programms\label{figure:test-programm-steps}}
+\end{figure}
+
+\paragraph{Als Encodierung in den \acs{CbCC}}
+verwenden die meisten \acp{TEA}
+die Array-Index-En\-co\-die\-rung. (\cite{lipp_meltdown_2020},
+\cite{van_schaik_ridl_2019}, \cite{schwarz_zombieload_2019},
+\cite{hertogh_rain_nodate}, \cite{kim_slap_2025},
+\cite{kim_flop_2025})
+Grund dafür ist zum einen, dass
+mehr als ein Informationsbit mit dem Laden einer einzelnen
+Adresse übertragen werden kann, und zum anderen, dass die
+ursprüngliche Spectre-Beschreibung häufige Muster in Software
+als Gadgets ausnutzt, bei denen solch ein Speicherzugriff von
+dem Secret abhängig ist (\cite[8]{kocher_spectre_2019}).
+
+Obwohl bei diesen Angriffen das Gadget aus Code besteht, der vom
+Angreifer kontrolliert wird, sind mir bisher keine praktischen
+Versuche in der Literatur bekannt, das Secret binär, mit mehr als
+einem Bit, zu encodieren. Um die Grenzen von \ac{CbCC}
+abzuschätzen, müssten potenzielle Wege, den Durchsatz dieser
+Kanäle zu erhöhen, gefunden und evaluiert werden. Aus diesem Grund
+ist ein Ziel dieser Arbeit, Daten binär in einen \ac{CbCC} während
+Transient Execution zu encodieren, um die praktische
+Umsetzbarkeit zu prüfen und verschiedene technische
+Eigenschaften zu evaluieren und zu vergleichen.
+
+\paragraph{Als Covert-Channel-Technik}
+wurde in dem Test-Programm der Flush+Reload Covert-Channel
+(\cite{yarom_flushreload_2014}) verwendet,
+da das Ziel primär das Demonstrieren von binärer Encodierung in
+einem evictionbasierten \ac{CbCC}, nicht die Wahl des
+Covert-Channels mit dem höchstmöglichen Durchsatz ist. Andere
+Covert-Channel-Techniken können ein anderes Laufzeitverhalten,
+sowie andere Fehlerraten und mehr verfügbare Bits aufweisen.
+Genauso kann für einige Covert-Channel die binäre Encodierung
+einen größeren oder kleineren Vorteil bieten als für
+Flush+Reload. Beispielsweise kann die Instruktion für das
+Encodieren eines Bits eine längere oder kürzere Laufzeit haben
+und damit mehr oder weniger Bits in einem transient Fenster
+übertragbar sein.
+
+\paragraph{Sicherstellung von Transient Execution.}
+Um Transient Execution auszulösen, wurde eine Branch-Instruktion
+verwendet, die außerdem, falls nötig, einen Predictor
+trainieren kann. Die Funktion, in der sich das transient
+Fenster befindet, ist in Listing \ref{listing:transient-function}
+zu sehen. In Abbildung \ref{figure:test-programm-steps} findet
+dies in Schritt \ref{enumerate:transient-function} statt. Dort
+wird abhängig von einem Wert aus einem Array
+geprüft, ob Daten in den \ac{CbCC} geschrieben werden sollen
+oder nicht. Das Array hält für jeden Index $i$ (beginnend mit 0)
+den Wert $i+1$, sodass, für alle, außer den letzten Zugriff,
+die Branch-Bedingung gilt. Das letzte Element der Trainingsdaten wird
+zudem vor dem Training mit der \verb|clflush|-Instruktion aus dem
+Cache entfernt, damit die \ac{CPU} entweder den korrekten Pfad
+vorhersagen, oder die Ausführung verzögern muss.
+Während der Trainingsphase, insofern
+eine angegeben ist, wird als Secret immer 0 in den \ac{CbCC}
+geschrieben, damit keine Adressen geladen werden. Wenn von der
+Methode das Encodieren in den \ac{CbCC} aufgerufen wird, wird
+der boolesche Wert „true“ als Indikator für den Trainingsprozess
+zurückgegeben. In der Übertragungsphase wird „false“
+zurückgegeben, um sicherzugehen, dass aus architektonischer Sicht
+\verb|asm_encode_data| nicht ausgeführt wurde. Wird aus dem
+\ac{CbCC} dennoch das Secret gelesen, wurden die Instruktionen
+als Transient Execution ausgeführt.
+
+\paragraph{Encodierung in den Cache-Zustand.}
+Listing \ref{listing:cbcc-binary-encoding} zeigt die Encodierung
+des Secrets in binärer Form in den Cache-Zustand. In Abbildung
+\ref{figure:test-programm-steps} findet dies bei den Punkten
+6 und 7 statt. Dabei
+wird ein Array als Eingabe genommen, dessen Elemente vorher durch
+\verb|clflush| aus dem Cache entfernt wurden. In diesem Array
+wird mit einem Abstand von \verb|stride| eine Adresse geladen,
+wenn diese den Wert 1 annehmen soll, ansonsten wird diese
+übersprungen. Zu beachten sei hier, dass die erste
+Datenadresse mit einem Abstand von \verb|stride| zum Beginn des
+Arrays gewählt wurde, um Beeinflussungen des Cache-Zustands durch
+vorherige Objekte auf dem Stack zu umgehen. Es kann außerdem
+angegeben werden, wie viele Bits encodiert werden sollen.
+
+Bei der Array-Index-Encodierung wird genauso ein Array übergeben,
+allerdings wird der Datenwert, nach dem Verrechnen mit einer
+Bitmaske, mit dem \verb|stride| multipliziert und das Ergebnis als
+Index für die zu ladende Adresse in dem Array genommen.
+
+\paragraph{Ausgeführt} wurde das Programm auf verschiedenen
+\acp{CPU}, von denen die Messwerte in Anhang
+\ref{appendix:measurements-graphs} zusammengefasst werden.
+
+Ein auffälliger Aspekt ist, dass der \ac{CbCC} bei einem
+AMD Ryzen 7 7735HS keine oder nur sehr geringe
+Daten korrekt transferiert hat. Die Genauigkeit befand sich
+dauerhaft knapp unter 0,6. Während das Problem die
+Implementierung des Programms sein könnte, weist der
+Covert-Channel auf der AMD A10-7850K APU deutlich höhere
+Genauigkeiten auf. Dies wirft die Frage auf, ob neuere \acp{CPU}, wie
+der Ryzen 7 7735HS, Mitigationen gegen \ac{CbCC} aufweisen. Da
+mir keine Quelle bekannt ist, die solch
+eine Mitigation bei diesen \acp{CPU} beschreibt, scheint dies eine
+offene Forschungsfrage zu sein. Es stellt sich die Frage, ob
+neuere Ryzen-\acp{CPU} Mitigationen gegen \ac{CbCC},
+möglicherweise nur während Transient Execution, besitzen, und
+wenn dies der Fall ist, welche Arten von Angriffen dadurch
+verhindert werden.
+Eine vollständige Mitigation von \acp{TEA} durch das Verhindern
+von Covert-Channels ist zu bezweifeln, da contentionbasierte
+Covert-Channels nahezu unvermeidbar sind und die einzige bekannte
+garantierte Mitigation von \acp{TEA} das
+Deaktivieren von Transient Execution ist. Die daraus
+resultierenden Performanceeinbußen wären zu groß, um die
+Verhinderung dieser Angriffe zu rechtfertigen.
+
+\subsection{Auswertung}
+\label{section:experimental-results}
+Die Abbildungen
+\ref{figure:measurement-results-bitwise},
+\ref{figure:measurement-results-array-index},
+\ref{figure:measurement-runtime-bitwise} und
+\ref{figure:measurement-runtime-array-index}
+zeigen die Ergebnisse als Graphen zusammengefasst.
+
+\paragraph{In diesen Grafiken}
+bedeutet „bitweise korrekt“, dass das Verhältnis
+aller korrekt übertragenen Bits, über alle Übertragungen hinweg
+gegenüber der Anzahl an übertragenen Bits ins Verhältnis gesetzt
+wird. Gesamte Übertragungen korrekt setzt dagegen die Anzahl
+an Übertragungen, bei denen kein Fehler aufgetreten ist,
+gegenüber der Anzahl an Übertragungen ins Verhältnis. Nötig ist
+dies, da bei der bitweisen Encodierung
+zwar seltener alle Bits korrekt übertragen werden, allerdings eine
+einzelne Änderung des Cache-Zustands, nicht alle Informationen
+stört. Bei der Array-Index-Encodierung dagegen wird bei
+jeglicher Störung keine Information korrekt übertragen. Die
+Fehlerkorrektur bei der bitweisen Encodierung, durch
+Wiederholung der Übertragung ist also generell besser möglich.
+Bei den beiden Darstellungen sei zu beachten, dass bei keinem
+Signal, das bedeutet bei rein zufällig erhaltenen Werten, die
+Genauigkeit bitweise betrachtet gegen 0,5 geht, während bei
+der Betrachtung der korrekten Übertragungen die Genauigkeit
+gegen 0 geht. Die Skalen sind also nicht identisch zu
+interpretieren.
+
+Die Abbildungen \ref{figure:measurement-runtime-bitwise} und
+\ref{figure:measurement-runtime-array-index} zeigen außerdem
+die durchschnittliche Laufzeit einer Übertragung, gemessen
+über den in Abbildung \ref{figure:test-programm-steps}
+gezeigten Abschnitt.
+
+\paragraph{Die Fehlerwahrscheinlichkeit}\label{paragraph:error-probability}
+zwischen den beiden Encodierungen verhält sich ähnlich in einem
+Bereich von 0,8 bis 0,95 über alle Trainingslängen hinweg.
+Die Array-Index-Encodierung weist grundsätzlich eine höhere
+Genauigkeit auf, wobei die Genauigkeit der einzelnen Bits nahezu
+identisch mit der Genauigkeit der Übertragungen übereinstimmt
+und nicht von der Anzahl übertragener Bits, sondern nur von dem
+Stride abhängt. Bei der bitweisen Encodierung zeigt sich dagegen,
+besonders bei dem i7-6700K, dass
+die Genauigkeit ab 9 Bit der vollständig korrekten
+Übertragungen, deutlich abfällt. Dies weist darauf hin, dass bei
+diesem Prozessor, die maximale Anzahl an
+\verb|prefetch0|-Instruktionen, die während der Transient Execution
+ausgeführt werden, 8 beträgt.
+
+Bei der bitweisen Encodierung ist ein großer Vorteil, dass mehr
+unabhängige Datenpunkte übertragen werden, als bei der
+Array-Index-Encodierung. Dadurch kann der häufigste Wert für jedes
+Bit einzeln, anstatt für den Gesamtwert, ermittelt werden. Dadurch
+könnte bei schlechterer Genauigkeit, verglichen mit der
+Array-Index-Encodierung, mit derselben Anzahl an Wiederholungen der
+korrekte Wert übertragen werden. Dafür müssen allerdings alle Bits
+gleich wahrscheinlich einen Fehler aufweisen. Im Folgenden wird davon
+ausgegangen, dass Fehler bei allen Bits gleich wahrscheinlich
+sind.
+
+Verschiedene Aspekte der Messungen zeigen, dass eine
+Generalisierung der Fehlerwahrscheinlichkeit abhängig von
+gegebenen Parametern schwer ist. Die Ergebnisse der
+AMD A10-7850K APU zeigen bei der bitweisen Encodierung für
+ein bis drei encodierte Bit deutlich geringere Genauigkeiten
+als für höhere Bitzahlen. Bei der Array-Index-Encodierung
+dagegen ist bei dieser \ac{CPU} für ein bzw. zwei encodierte Bits
+die höchste Genauigkeit aller Übertragungen verzeichnet.
+Auffällig ist dabei auch, dass ab einem Stride von $2^{10}$ die
+Genauigkeit nur noch sinkt. Während der beobachtete Unterschied
+zwischen der bitweisen und der Array-Index-Encodierung von dem
+Unterschied in der Encodierung abhängt, wird in dieser Arbeit
+kein Versuch unternommen, diese beobachteten Phänomene zu
+erklären. Sie zeigen aber, welche Problematik die Betrachtung
+der Fehlerwahrscheinlichkeit für die Ermittlung des Durchsatzes
+darstellt.
+
+\paragraph{Der Stride}
+hat wie erwartet einen deutlichen Einfluss auf die Genauigkeit.
+Interessant ist jedoch, dass bei dem Intel\textregistered\space
+Core\texttrademark\space i7-6700K ab einem Stride von $2^{9}$ kaum
+eine Verbesserung der Genauigkeit zu erkennen ist. Auch bei den
+anderen \acp{CPU} zeigt sich ein ähnliches Verhalten, was auf die
+maximale Reichweite des Prefetchers hindeutet. Bei einem Stride
+von $2^{12}$, was der Größe einer Memory-Page entspricht, lassen
+sich jedoch zuverlässig die besten Ergebnisse beobachten.
+
+\paragraph{Die Anzahl der Trainingsläufe}
+hat, wie in Abbildung \ref{figure:measurement-results-array-index}
+zu sehen, bei der Array-Index-Encodierung keinen relevanten
+Einfluss auf die Genauigkeit der Übertragung. Bei der bitweisen
+Encodierung dagegen ist eine leicht steigende Tendenz der
+Genauigkeit bei steigender Anzahl an Trainingsläufen zu erkennen.
+Eine mögliche Erklärung dafür wäre, dass mit mehr Trainingsläufen
+die Länge des transient Fensters steigt und damit auch die Anzahl
+an korrekt übertragenen Bits bei der bitweisen Encodierung. Bei
+der Array-Index-Encodierung dagegen ändert die Größe des
+transient Fensters nichts mehr, sobald dessen Dauer für die
+Encodierung einer Adresse ausreicht.
+
+\paragraph{Das Laufzeitverhalten}
+ist als logarithmische Skala dargestellt, da die Laufzeit der
+Ar\-ray-Index-Encodierung mit zunehmender Bitanzahl exponentiell
+skaliert. Grund dafür ist, dass, wie bereits erwähnt, die Anzahl
+der zu messenden Adressen exponentiell mit der Anzahl an
+übertragenen Bit steigt.
+
+Die Abbildungen
+\ref{figure:measurement-runtime-bitwise} und
+\ref{figure:measurement-runtime-array-index} zeigen, dass der Stride
+einen Einfluss auf die Laufzeit der Übertragung hat. Die Ursache
+dafür ist, dass in dem Test-Programm die Allokation
+von dem Covert-Channel-Array sowie das Setzen der Array-Elemente auf einen
+festen Wert mitgemessen werden und deren Laufzeit
+von der Größe des Arrays abhängt. Das Setzen von Werten
+in dem Array ist nötig, da ansonsten bei einem Stride von 4096 die
+Genauigkeit deutlich sinkt. Der Grund dafür könnte mit der Handhabung
+von Memory-Pages zusammenhängen, da sich bei diesem Stride nur eine
+betrachtete Adresse je Page befindet. In einem Angriff
+mit mehreren Übertragungen kann dasselbe Array mehrfach verwendet
+werden. Aus diesem Grund ist die Laufzeit dieser Operationen nicht für
+das Abschätzen einer Grenze für die Laufzeit von \acp{TEA} relevant.
+Für die bitweise Encodierung zeigt sich deutlich, dass der
+Covert-Channel kaum einen Einfluss auf die Laufzeit einer Übertragung
+hat. Dies zeigt sich, da nur ein geringer Anstieg der Laufzeit einer
+Übertragung bei mehr Bit erfolgt. Bei der Array-Index-Encodierung
+dagegen steigt die Gesamtlaufzeit mit steigender Bitanzahl deutlich
+an. Dies deutet bereits darauf hin, dass die optimale Encodierung
+eine Kombination der beiden ist.
+
+\subsection{Theoretische Laufzeitbetrachtung}
+Im Folgenden wird die Laufzeit einer Übertragung während eines
+\ac{TEA} unter einigen Annahmen und ohne die Genauigkeit des
+\ac{CbCC} zu beachten betrachtet. Dabei wird als Zeiteinheit
+immer implizit \ac{CPU}-Zyklen verwendet.
+
+\paragraph{Folgende Annahmen werden getroffen:}
+\begin{itemize}
+    \item Die ausgeführten Operationen dauern bei gleichem
+    Zustand der Mikroarchitektur immer exakt gleich
+    lang, gemessen an den \ac{CPU}-Zyklen.
+    \item Alle möglichen übertragenen Informationen
+    sind gleich wahrscheinlich.
+    \item Der Unterschied der Dauer des Auslesens einer Adresse,
+    wenn diese gecacht ist, gegenüber der Laufzeit, wenn diese
+    nicht gecacht ist, wird nicht unterschieden. Für die
+    bitweise Encodierung kann zwar, unter der Annahme, dass ein
+    Informationsbit mit einer Wahrscheinlichkeit von
+    $\frac{1}{2}$ den Wert $1$ hat, der Mittelwert der beiden
+    verwendet werden, allerdings gilt dies nicht für die
+    Array-Index-Encodierung. Als Zugriffszeit, nachfolgend $T_R$,
+    wird die kürzere der beiden Zeiten betrachtet, um eine obere
+    Grenze für den Durchsatz durch Überschätzen zu ermitteln.
+    \item Eine Übertragung kann beliebig oft wiederholt werden,
+    um das Secret schrittweise zu übertragen.
+    \item Nach dem Auslesen der letzten Übertragung
+    und der nächsten Setup-Phase vergeht keine Zeit.
+\end{itemize}
+
+\paragraph{Die Setup-Phase}
+muss in der Regel eine Operation, wie das Evicten von
+Adressen für alle beobachteten Adressen durchführen.
+Zusätzlich muss der Predictor, sofern einer verwendet wird,
+trainiert werden. Damit ergibt sich die Laufzeit $L_S$
+mit $N_T$ als Anzahl der Trainingsläufe, $T_T$ als die
+Dauer eines Trainingslaufs, $N_P$ als die Anzahl der beobachteten
+Adressen und $T_P$ als Dauer der Vorbereitung einer Adresse.
+\[L_S=N_T*T_T+N_P*T_P\]
+Die Vorbereitung einer Adresse besteht beispielsweise bei
+Flush+Reload in der Dauer einer Flush-Instruktion.
+
+\paragraph{Für die Transient-Execution-Phase}
+wird der zeitliche Aufwand $L_E$ als konstanter Wert betrachtet,
+da der Wert vorrangig von der Kondition abhängt, die das transient
+Fenster auslöst.
+
+\paragraph{In der Decode-Phase}
+hängt die Laufzeit primär von dem verwendeten
+Covert-Channel ab. Diese Laufzeit $L_D$ hängt von der Anzahl
+auszulesender Adressen $N_R$ und dem zeitlichen Aufwand zum
+Auslesen einer Adresse $T_R$ ab.
+\[L_D=N_R*T_R\]
+Bei der Setup- und der Decode-Phase wird bewusst zwischen $N_P$ und
+$N_R$ unterschieden, da die Anzahl der vorbereiteten Adressen
+zwangsläufig alle möglichen Zustandsadressen umfasst. Bei dem
+Auslesen kann allerdings für die Array-Index-Encodierung bereits
+die erste Adresse, die als gecacht ermittelt
+wird, auch als encodierter Wert betrachtet werden.
+Um die Berechnung der Anzahl der zu messenden Adressen zu
+vereinfachen, werden alle Werte, die in den \ac{CbCC} geschrieben
+werden könnten, als gleich wahrscheinlich angenommen.
+Daraus folgt, dass im Mittel nach der Hälfte der Adressen
+der encodierte Wert gefunden wird.
+Für die bitweise Encodierung ändert sich dadurch nichts, da dort
+jede Adresse einen Informationswert speichert und somit stets alle
+Adressen ausgelesen werden müssen.
+
+\paragraph{Die Anzahl an verwendeten Adressen}
+wird für eine verallgemeinerte Kombination aus bitweiser und
+Array-Index-Encodierung betrachtet.
+Es werden zur Encodierung Ad\-ressen aus $n_b$ Arrays geladen.
+Jedes Array encodiert $2^{n_a}$ verschiedene Zustände. Der Wert
+$0$ wird encodiert, indem keine Adresse geladen ist. Daraus
+ergeben sich für jedes Array $2^{n_a}-1$ Adressen. $n_a$ stellt
+dabei die Anzahl an Array-Index encodierten Adressen dar.
+Damit ergeben sich für $N_P$ und $N_R$ folgende Berechnungen:
+\[N_P=n_b*(2^{n_a}-1)\]
+\[N_R=n_b*2^{n_a-1}\]
+Wobei $n_b$ und $n_a$ mindestens $1$ sind. Die vollständige
+bitweise Encodierung liegt also vor, wenn $n_a=1$ und $n_b$
+die Anzahl an übertragenen Bits angibt. Wenn $n_b=1$ und
+$n_a$ beliebig, liegt die Array-Index-Encodierung vor.
+Damit wird davon ausgegangen, dass bei der
+Array-Index-Encodierung der Wert 0 übertragen wird, indem
+keine andere Adresse gecacht ist.
+
+\paragraph{Die theoretische Laufzeit}
+$L_G$ einer einzelnen Übertragung mit den benannten Faktoren
+beträgt somit:
+\[L_G=L_S+L_E+L_D\]
+\[L_G=N_T*T_T+n_b*(2^{n_a}-1)*T_P+L_E+n_b*2^{n_a-1}*T_R\]
+Da für einen spezifischen \ac{TEA} die Transient Execution
+und deren Vorbereitung gleichbleiben, gilt für
+hinreichend große $n_b$, $n_a$, $T_P$ und $T_R$:
+\[L_G\propto n_b*(2^{n_a}-1)*T_P+n_b*2^{n_a-1}*T_R\]
+Begrenzt ist $n_b$ durch die Tiefe des transient Fensters und
+$n_a$ durch die Größe des Cache, beziehungsweise des Speichers.
+
+Der Durchsatz $D$, welcher optimiert werden soll, ergibt sich aus
+der Anzahl übertragener Bits $n$ je Zeiteinheit.
+\[D=\frac{n}{L_G}=\frac{n_a*n_b}{L_G}\]
+Da $L_G$ durch $n_b$ linear und durch $n_a$ exponentiell skaliert,
+sollte $n_b$ maximal und $n_a$ minimal gesetzt werden, wobei $n_b$
+durch das transient Fenster begrenzt ist. Unter der theoretischen
+Annahme, dass $n_b$ nicht begrenzt ist, ergibt sich, da $N_T*T_T$
+und $L_E$ konstant sind, für $D$ bei $n_a=1$ die folgende
+theoretische Grenze.
+\[\lim_{n_b\to +\infty}D=\lim_{n_b\to +\infty}\frac{n_b}{L_G}=
+\lim_{n_b\to +\infty}\frac{n_b}{N_T*T_T+n_b*T_P+L_E+n_b*T_R}=
+\frac{1}{T_P+T_R}\]
+Diese Grenze ergibt sich auch trivial durch die Überlegung, welche
+Operationen bei der bitweisen Encodierung je Bit ausgeführt werden
+müssen. Unter der Vernachlässigung des zeitlichen Aufwands für das
+Verändern des Cache-Zustands während der Transient Execution ergibt
+sich, dass der Zeitaufwand für die Übertragung eines Bits die Summe
+aus der Vorbereitung und dem Auslesen ist. Folglich ergibt sich der
+Durchsatz $\frac{1}{T_P+T_R}$.
+
+Da allerdings $n_b$ begrenzt ist, $N_T*T_T$ und $L_E$ nicht
+beide $0$ sind, ergibt sich für einen durch das transient Fenster
+begrenzten Wert $n_{bmax}$ die folgende Funktion für $D$.
+\[D(n_a)=\frac{n_{bmax}*n_a}{N_T*T_T+L_E+n_{bmax}*T_P*(2^{n_a}-1)+n_{bmax}*T_R*2^{n_a-1}}\]
+Als Visualisierung ist für $N_T=50$, $T_T=20$, $L_E=100$,
+$T_P=50$, $T_R=120$ und $n_b=8$ die Funktion $D(n_a)$ in Abbildung
+\ref{figure:theoretical-runtime} dargestellt.
+
+Das Maximum dieser Funktion ergibt sich aus dem Punkt, an dem
+für die Ableitung $D'(n_a)=0$ gilt. Die Ableitung ist für
+Vollständigkeit in Abbildung \ref{figure:throughput-derivation}
+dargestellt.
+
+\subsection{Diskussion}
+Die Wahl des Strides ist für die Datenrate des \ac{CbCC} eher
+weniger relevant. Grund dafür ist, dass ein größerer Stride
+keine direkten negativen Auswirkungen auf die Datenrate oder
+Genauigkeit hat und nur durch die Größe des \ac{RAM} begrenzt
+ist. Relevant werden könnte dieser Parameter, wenn das
+allokierte Array so groß ist, dass zu viele beobachtete
+Adressen in einem Eviction-Set liegen. Beispielsweise, wenn
+auch der \ac{LLC} nur wenige Einträge je Eviction-Set aufweist,
+die Array-Index-Encodierung verwendet wird und eine Art
+invertierte Encodierung verwendet wird. Also, wenn alle verwendeten
+Adressen in der Setup-Phase geladen und während der Transient
+Execution zur Encodierung einzelne Adressen evicted werden.
+
+Da $n_b$ maximiert werden soll, wäre es sinnvoll, die Laufzeit
+der Instruktion zum Verändern des Cache-Zustands während der
+Transient Execution zu minimieren und die Encodierung mit
+möglichst wenigen Instruktionen zu realisieren. Dadurch könnten
+möglichst viele Bits encodiert werden.
+Besonders die Genauigkeit der Zeitmessung beeinflusst die
+optimale Encodierung. Denn ansonsten muss der Zeitunterschied,
+wie beispielsweise in \cite[17]{kim_slap_2025}, verstärkt werden.
+Diese Verstärkung erhöht allerdings auch die Laufzeit einer
+Messung, da der Unterschied groß genug sein muss, um von dem
+ungenauen Zeitgeber unterschieden zu werden.
+
+Für viele Angriffe, die darauf abzielen, Zugriffsbeschränkungen,
+beispielsweise einer \ac{VM} oder des Kernels, zu umgehen, ergibt
+es deshalb Sinn, eine Kombination aus bitweiser und Array-Index-Encodierung
+zu verwenden. Dort ist häufig eine hochauflösende Zeitmessung,
+wie zum Beispiel durch die \verb|rdtsc|-Instruktion, möglich.
+Dadurch bleibt die Laufzeit des Auslesens relativ gering im
+Verhältnis zu der restlichen Übertragung. Beispiele dafür sind
+\cite{hertogh_rain_nodate}, \cite{lipp_meltdown_2020},
+\cite{maisuradze_ret2spec_2018}.
+
+Bei gewissen Angriffen sind allerdings keine hochauflösenden
+Zeitmessungen möglich. Dies ist beispielsweise in Apple Webkit
+der Fall (\cite[11]{kim_slap_2025}). Zum Auslesen der Daten aus
+dem Covert-Channel wurde von \cite{kim_slap_2025} der
+Zeitunterschied zwischen einer gecachten und einer nicht
+gecachten Adresse durch logische Gatter verstärkt. Das Auslesen
+einer Adresse dauert im Mittel deshalb zwischen 5 und 12
+Millisekunden (\cite[17]{kim_slap_2025}). Dadurch ist $T_R$ im
+Verhältnis zum restlichen Angriff so groß, dass die Dauer einer
+Übertragung nahezu der Laufzeit des Auslesens entspricht.
+Das Verwenden der bitweisen Encodierung verringert die Laufzeit
+damit deutlich gegenüber der Array-Index-Encodierung. Mit der
+Annahme, dass mit jeder Übertragung 8 Bit encodiert werden,
+ergibt sich das folgende Verhältnis zwischen den bitweise
+encodierten Adressen $N_{Rb}$ und den Array-Index encodierten
+Adressen $N_{Ra}$:
+\[\frac{N_{Ra}}{N_{Rb}}=\frac{2^{n_a-1}}{n_b}=\frac{128}{8}=16\]
+Da das Auslesen praktisch die Laufzeit der gesamten Übertragung
+darstellt, wäre in diesem Falle der gesamte Angriff um den Faktor
+16 schneller. Dies ist allerdings nur ein theoretischer Wert
+und gilt nur für Angriffe, bei denen das Auslesen eine sehr
+hohe Laufzeit im Verhältnis zu der restlichen Übertragung
+aufweist. Aus Listing 3 und 4 in \cite[6,8]{kim_slap_2025} lässt
+sich ablesen, dass ein Byte als Array-Index encodiert wurde.
+Die Laufzeit dieses spezifischen Angriffs könnte also unter den
+getroffenen Annahmen deutlich optimiert werden und ein
+entsprechend höheres Risiko darstellen. Der dort genannte
+Durchsatz von 0,384 Bits pro Sekunde (\cite[12]{kim_slap_2025})
+könnte theoretisch auf 6,144 erhöht werden.
+
+Das Risiko, das von Angriffen ausgeht, verändert sich mit der
+Geschwindigkeit, in der sie durchgeführt werden können. Auch
+wenn der Durchsatz deutlich erhöht und damit die Laufzeit des
+zuvor beschriebenen \ac{POC} deutlich verringert werden kann,
+bleiben \acp{TEA} jedoch aufwändige Angriffe mit hoher Komplexität.
+Die Optimierung der verwendeten \acp{CbCC} trägt zwar dazu bei,
+die praktische Umsetzbarkeit solcher Angriffe zu erhöhen,
+allerdings ist für die Einschätzung nach wie vor vorrangig
+die ausgenutzte Schwachstelle und ihre Auswirkungen auf die
+Schutzziele relevant. Da aber eine generelle Mitigation für
+\acp{TEA} nicht existiert, bleiben diese Angriffe zukünftig
+ein Risiko, welches auch von der Laufzeit abhängt. Die ermittelte
+Grenze für die Laufzeit eines Angriffs kann bei der Einschätzung
+von Angriffen hinsichtlich der praktischen Ausnutzung helfen.
+Zusätzlich können Maßnahmen, mit dem Ziel, Covert-Channels während
+\acp{TEA} zu begrenzen, hinsichtlich ihrer Wirkung gemessen und
+verglichen werden.

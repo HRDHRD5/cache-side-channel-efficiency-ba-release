@@ -1,0 +1,117 @@
+
+\subsection{Schutzziele und Informationssicherheit}
+Die IT-Sicherheit befasst sich mit dem Schutz von
+Informationen sowie der Systeme, die diese Informationen
+verarbeiten. Es wird ein Zustand angestrebt, bei dem das
+betrachtete System die definierten Sicherheitsziele erfüllt
+(\cite[16]{von_faber_it_2021}).
+Als die drei wichtigsten Schutzziele wird meist die CIA-Triade
+herangezogen (\cite[21]{liedtke_informationssicherheit_2022}).
+Das Akronym CIA steht für „Confidentiality“ (Vertraulichkeit),
+„Integrity“ (Integrität) und
+„Availability“ (Verfügbarkeit) (\cite[12]{von_faber_it_2021}).
+
+Eine zentrale Herausforderung besteht darin, dass auf jeder
+Ebene des Systems
+Schwachstellen existieren können, die zur Verletzung dieser
+Schutzziele führen können.
+(\cite[19]{liedtke_informationssicherheit_2022})
+
+Zur Gewährleistung von Informationssicherheit, werden sowohl
+organisatorische als auch technische Aspekte betrachtet. Der
+Fokus liegt dabei häufig auf Software, sowie auf der
+Applikations- und Betriebssystemebene.
+Schwachstellen in darunter liegenden Bereichen,
+beispielsweise bei physischen Zugriffen, können die Sicherheit
+des gesamten Systems schwächen.
+
+Um Hardware Ressourcen Effizient
+zu nutzen, werden diese zwischen verschiedenen Aufgaben geteilt.
+(\cite[44]{kamp_building_2004})
+Entsprechend existieren verschiedenste Mechanismen, um den Zugriff
+eines Programms auf die Ressourcen anderer Programme zu
+verhindern und so die Schutzziele zu gewährleisten. Diese
+Isolation kann in Software beispielsweise als \ac{VM} oder durch
+das Betriebssystem realisiert werden, geschieht aber häufig in
+enger Verknüpfung mit der Hardware.
+
+\subsection{Side-Channel und \acfp{TEA}}
+Mit der Entdeckung praktischer Cache-basierter Side-Channels,
+wie beispielsweise in \cite{bernstein_cache-timing_2005},
+wurde ein neuer Angriffsvektor sichtbar, der auf der
+konzeptionellen Funktionsweise moderner Computersysteme
+beruht.
+Das Problem mit dieser Art von Angriff ist, dass Schwachstellen
+in den Bereichen zwischen der Hard- und Software ausgenutzt
+werden, die in verschiedensten
+\ac{CPU} Architekturen und Implementierungen auftreten.
+Mit der Entdeckung von \acp{TEA} durch \cite{kocher_spectre_2019}
+und \cite{lipp_meltdown_2020} wurde dieser Angriffsvektor
+weiter vergrößert. Da diese Angriffe grundlegende
+Konzepte moderner \acp{CPU} ausnutzen, betrifft diese Art an
+Schwachstellen sowohl x86 Intel und AMD als auch ARM
+\acp{CPU}-Architekturen. (\cite[253,255]{canella_systematic_2019})
+\acp{TEA} nutzen dieselben Eigenschaften wie
+Cache-basierte Side-Channel für sogenannte Covert-Channel,
+um die Informationen wiederzuerlangen. Obwohl außer \ac{CbCC}
+potenziell auch contentionbasierte Covert-Channel
+(\cite[2]{wang_covert_2006}) eingesetzt
+werden könnten, wurden bei \acp{POC} von \acp{TEA}
+bisher grundsätzlich \acp{CbCC} verwendet.
+(\cite[4,6]{kocher_spectre_2019},
+\cite[4]{lipp_meltdown_2020}, \cite[7]{schwarz_zombieload_2019},
+\cite[6]{kim_slap_2025}, \cite[91]{van_schaik_ridl_2019}).
+
+Da \acp{TEA} eine hohe Komplexität
+und starke Hardware Abhängigkeit aufweisen, wird ihre praktische
+Umsetzbarkeit außerhalb kontrollierter
+Laborumgebungen häufig hinterfragt. Aus demselben Grund wird
+das von diesen Angriffen ausgehende Risiko hinterfragt.
+(\cite[293,296]{shepherd_transient_2022})
+Besonders bei browserbasierten Angriffen, wie beispielsweise
+\cite{kim_ileakage_2023}, \cite{kim_slap_2025} und
+\cite{kim_flop_2025}, die eine relativ hohe Laufzeit aufweisen
+und einen passiven Nutzer voraussetzen, besteht die Frage,
+ob diese Angriffe praktisch von einem Angreifer genutzt werden
+könnten. Dabei könnte derselbe Angriff ein deutlich höheres
+Risiko darstellen, insofern seine Laufzeit erheblich reduziert
+werden kann.
+
+Da das grundlegende Problem ohne
+deutliche Performanceeinbußen nicht verhindert werden kann,
+existieren verschiedene Ansätze zur Entwicklung von Mitigationen
+gegen Covert-Channels während Transient Execution. Dazu zählen
+sowohl automatische statische Analysen von Programmen, mit denen
+sich mögliche Gadgets für solche Angriffe identifizieren lassen
+(\cite{brotzman_specsafe_2021}),
+als auch Mitigationen gegen spezifische Covert-Channel während
+Transient Execution
+(\cite{cheng_speclfb_2024}).
+Eine generelle Mitigation gegen Transient Execution und
+Cache-basierte Side-Channel Angriffe ist jedoch praktisch nicht
+möglich, ohne die ausgenutzten Optimierungen vollständig zu
+entfernen. Die einzige allgemeine Möglichkeit besteht darin
+Störungen durch Änderungen in den Cache Zuständen auszulösen,
+um eine Übertragung deutlich zu erschweren oder unmöglich zu machen.
+(\cite[6]{wang_covert_2006}, \cite[11]{su_survey_2021})
+Da \acp{TEA} allerdings nicht ausschließlich auf
+\ac{CbCC} angewiesen sind und Störungen allein nicht den Angriff
+verhindern, werden häufig weitere Maßnahmen betrachtet, die
+allerdings nur spezifische Angriffsszenarien abdecken.
+Aus diesem Grund bleiben solche Angriffe ein Risiko,
+welches nicht vollständig mitigiert werden kann. Daraus ergibt
+sich die Frage, welche Angriffe unter realistischen Bedingungen
+tatsächlich praktikabel sind.
+
+\subsection{Zielstellung}
+Ziel dieser Arbeit ist es, einen Überblick über
+die technischen Möglichkeiten von \ac{CbCC} hinsichtlich ihrer
+Grenzen im Kontext von Transient Execution zu erarbeiten.
+
+Hierzu werden zwei Ansätze zur Implementierung von CbCC sowie
+verschiedene bekannte Techniken in Kombination mit Transient
+Execution grundlegend verglichen. Dabei sollen
+Parameter identifiziert werden, die für die
+Übertragungsgeschwindigkeit eines CbCC entscheidend sind. Auf
+dieser Grundlage soll eine Einschätzung der Grenzen solcher
+CbCC auf gegebener Hardware ermöglicht werden.
