@@ -4,5 +4,5 @@ Das Repository enthält den LaTeX-Sourcecode meiner Bachelorarbeit und der Präs
 Personenbezogene Daten wurden bewusst aus den Dateien entfernt, um nur den Inhalt zur Verfügung zu stellen.
 
 Kompilierte Dateien:
-- [Bachelorarbeit](https://github.com/HRDHRD5/cache-side-channel-efficiency-ba-release/paper/main.pdf)
-- [Präsentation](https://github.com/HRDHRD5/cache-side-channel-efficiency-ba-release/colloqium/beamer/presentation.pdf)
+- [Bachelorarbeit](https://github.com/HRDHRD5/cache-side-channel-efficiency-ba-release/blob/main/paper/main.pdf)
+- [Präsentation](https://github.com/HRDHRD5/cache-side-channel-efficiency-ba-release/blob/main/colloqium/beamer/presentation.pdf)
